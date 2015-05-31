@@ -23,9 +23,9 @@ class Redis implements Driver {
 
         $this->reactor->repeat(function () {
             foreach ($this->locks as $id => $token) {
-                $this->mutex->renew($id, $token, 1000);
+                $this->mutex->renew($id, $token);
             }
-        }, 500);
+        }, $this->mutex->getTTL() / 2);
     }
 
     /**
@@ -35,7 +35,7 @@ class Redis implements Driver {
     public function open (string $id): Promise {
         $token = uniqid("", true);
 
-        return pipe($this->mutex->lock($id, $token, 1000, 1), function () use ($id, $token) {
+        return pipe($this->mutex->lock($id, $token), function () use ($id, $token) {
             $this->locks[$id] = $token;
             return $this->read($id);
         });
@@ -65,7 +65,7 @@ class Redis implements Driver {
     public function regenerate (string $oldId, string $newId): Promise {
         $token = $this->locks[$oldId] ?? "";
 
-        return pipe($this->mutex->lock($newId, $token, 1000, 1), function () use ($oldId, $token) {
+        return pipe($this->mutex->lock($newId, $token), function () use ($oldId, $token) {
             return $this->mutex->unlock($oldId, $token);
         });
     }
