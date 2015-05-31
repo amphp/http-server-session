@@ -24,7 +24,8 @@ class Session implements \ArrayAccess {
     private $defaultPipe;
 
     const ALLOWED_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    const ID_LENGTH = 24; // divisible by three to not waste chars with "="
+    const ID_BYTES = 24; // divisible by three to not waste chars with "="
+    const ID_LENGTH = self::ID_BYTES * 4 / 3;
 
     public function  __construct (Request $request) {
         $this->readPipe = function (array $data) {
@@ -34,6 +35,7 @@ class Session implements \ArrayAccess {
             $this->data = $data;
             return $this;
         };
+
         $this->openPipe = function (array $data) {
             if (empty($data)) {
                 $this->setId(false);
@@ -42,6 +44,7 @@ class Session implements \ArrayAccess {
             $this->data = $data;
             return $this;
         };
+
         $this->defaultPipe = function () {
             return $this;
         };
@@ -54,14 +57,15 @@ class Session implements \ArrayAccess {
         $request->setLocalVar("aerys.session.config", $config);
 
         $id = $request->getCookie($config["name"]);
-        if (\strlen($id) == self::ID_LENGTH && strspn($id, self::ALLOWED_ID_CHARS) == self::ID_LENGTH) {
+
+        if (\strlen($id) === self::ID_LENGTH && strspn($id, self::ALLOWED_ID_CHARS) === self::ID_LENGTH) {
             $this->setId($id);
         }
     }
 
 
     private function generateId () {
-        return base64_encode(random_bytes(self::ID_LENGTH));
+        return base64_encode(random_bytes(self::ID_BYTES));
     }
 
     private function setId ($id) {
@@ -127,11 +131,15 @@ class Session implements \ArrayAccess {
             $this->writable = 1;
             return new Success($this);
         } else {
-            return pipe($this->driver->open($this->id), $this->openPipe)->when(function ($e) {
+            /** @var Promise $promise */
+            $promise = pipe($this->driver->open($this->id), $this->openPipe);
+            $promise->when(function ($e) {
                 if ($e) {
                     $this->writable = 0;
                 }
             });
+
+            return $promise;
         }
     }
 
