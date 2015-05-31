@@ -1,25 +1,37 @@
 {
-    "name": "amphp/aeryssession",
-    "homepage": "https://github.com/amphp/aeryssession",
-    "description": "Session management for Aerys server",
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "Bob Weinand",
-            "role": "Creator"
-        }
-    ],
-    "require": {
-        "php": ">=7.0.0-dev",
-        "amphp/amp": "1.0.x-dev"
+  "name": "amphp/aeryssession",
+  "homepage": "https://github.com/amphp/aeryssession",
+  "description": "Session management for Aerys server",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Bob Weinand",
+      "role": "Creator"
     },
-    "autoload": {
-        "psr-4": {
-            "Aerys\\Session": "lib/"
-        },
-        "files": ["lib/functions.php"],
-        "classmap": [
-            {"Aerys\\Session": "lib/Session.php"}
-        ]
+    {
+      "name": "Niklas Keller",
+      "email": "me@kelunik.com",
+      "homepage": "http://kelunik.com",
+      "role": "Developer"
     }
+  ],
+  "minimum-stability": "dev",
+  "require": {
+    "php": ">=7.0.0-dev",
+    "amphp/amp": "1.0.x-dev",
+    "kelunik/redis-mutex": "dev-master"
+  },
+  "autoload": {
+    "psr-4": {
+      "Aerys\\Session": "lib/"
+    },
+    "files": [
+      "lib/functions.php"
+    ],
+    "classmap": [
+      {
+        "Aerys\\Session": "lib/Session.php"
+      }
+    ]
+  }
 }
