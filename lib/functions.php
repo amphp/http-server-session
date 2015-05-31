@@ -10,10 +10,13 @@ function session(array $config = []) {
     assert(isset($config["driver"]) && $config["driver"] instanceof Session\Driver);
 
     return new class($config) implements Middleware {
-        private $config;
+        private $config = [
+            "name" => "session",
+            "cookie_flags" => ["httpOnly"]
+        ];
 
         public function __construct($config) {
-            $this->config = $config;
+            $this->config = array_merge($this->config, $config);
         }
 
         public function filter(InternalRequest $request) {
