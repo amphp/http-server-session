@@ -18,8 +18,9 @@ class Session implements \ArrayAccess {
     private $driver;
     private $id; // usually _the id_, false when expired (empty session data), null when not set at all
     private $data;
-    private $writable = false;
+    private $writable = 0; // 0 => not writable, 1 => writable, 2 => lock pending
     private $readPipe;
+    private $openPipe;
     private $defaultPipe;
 
     const ALLOWED_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -30,6 +31,14 @@ class Session implements \ArrayAccess {
             if (empty($data)) {
                 $this->setId(false);
             }
+            $this->data = $data;
+            return $this;
+        };
+        $this->openPipe = function(array $data) {
+            if (empty($data)) {
+                $this->setId(false);
+            }
+            $this->writable = 1;
             $this->data = $data;
             return $this;
         };
@@ -76,6 +85,10 @@ class Session implements \ArrayAccess {
     }
 
     public function offsetGet($offset) {
+        if ($this->writable === 2) {
+            throw new Session\LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
+        }
+
         if (!array_key_exists($offset, $this->data)) {
             throw new \Exception("Key '$offset' does not exist in session");
         }
@@ -84,8 +97,12 @@ class Session implements \ArrayAccess {
     }
 
     public function offsetSet($offset, $value) {
-        if (!$this->writable) {
-            throw new Session\LockException("Session is not locked, can't write");
+        if ($this->writable !== 1) {
+            if ($this->writable === 2) {
+                throw new Session\LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+            } else {
+                throw new Session\LockException("Session is not locked, can't write");
+            }
         }
 
         $this->data[$offset] = $value;
@@ -104,10 +121,10 @@ class Session implements \ArrayAccess {
             throw new Session\LockException("Session already opened, can't open again");
         }
 
-        $this->writable = true;
-        return !$this->id ? new Success($this) : pipe($this->driver->open($this->id), $this->readPipe)->when(function ($e) {
+        $this->writable = 2;
+        return !$this->id ? new Success($this) : pipe($this->driver->open($this->id), $this->openPipe)->when(function ($e) {
             if ($e) {
-                $this->writable = false;
+                $this->writable = 0;
             }
         });
     }
@@ -117,11 +134,15 @@ class Session implements \ArrayAccess {
      * @return \Amp\Promise resolving after success
      */
     public function save(): Promise {
-        if (!$this->writable) {
-            throw new Session\LockException("Session is not locked, can't write");
+        if ($this->writable !== 1) {
+            if ($this->writable === 2) {
+                throw new Session\LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+            } else {
+                throw new Session\LockException("Session is not locked, can't write");
+            }
         }
 
-        $this->writable = false;
+        $this->writable = 0;
         if (!$this->id && $this->data) {
             $this->setId($this->generateId());
         }
@@ -165,8 +186,12 @@ class Session implements \ArrayAccess {
      * @return \Amp\Promise resolving after success
      */
     public function regenerate(): Promise {
-        if (!$this->writable) {
-            throw new Session\LockException("Session is not locked, can't write");
+        if ($this->writable !== 1) {
+            if ($this->writable === 2) {
+                throw new Session\LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+            } else {
+                throw new Session\LockException("Session is not locked, can't write");
+            }
         }
 
         if ($this->id) {
@@ -184,8 +209,12 @@ class Session implements \ArrayAccess {
      * @return \Amp\Promise resolving after success
      */
     public function destroy(): Promise {
-        if (!$this->writable) {
-            throw new Session\LockException("Session is not locked, can't destroy");
+        if ($this->writable !== 1) {
+            if ($this->writable === 2) {
+                throw new Session\LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+            } else {
+                throw new Session\LockException("Session is not locked, can't write");
+            }
         }
 
         if ($this->id) {
