@@ -22,6 +22,9 @@ class Session implements \ArrayAccess {
     private $readPipe;
     private $defaultPipe;
 
+    const ALLOWED_ID_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const ID_LENGTH = 24; // divisible by three to not waste chars with "="
+
     public function  __construct(Request $request) {
         $this->readPipe = function(array $data) {
             if (empty($data)) {
@@ -41,13 +44,15 @@ class Session implements \ArrayAccess {
         $config += static::CONFIG;
         $request->setLocalVar("aerys.session.config", $config);
 
-        $this->setId($request->getCookie($config["name"]));
-        $this->setSessionCookie();
+        $id = $request->getCookie($config["name"]);
+        if (\strlen($id) == self::ID_LENGTH && strspn($id, self::ALLOWED_ID_CHARS) == self::ID_LENGTH) {
+            $this->setId($id);
+        }
     }
 
 
     private function generateId() {
-        return base64_encode(random_bytes(24));
+        return base64_encode(random_bytes(self::ID_LENGTH));
     }
 
     private function setId($id) {
