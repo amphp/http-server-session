@@ -20,7 +20,7 @@
     "php": ">=7.0.0-dev",
     "amphp/amp": "1.0.x-dev",
     "kelunik/redis-mutex": "dev-master",
-    "amphp/aerys": "dev-cookies"
+    "amphp/aerys": "dev-wip"
   },
   "autoload": {
     "psr-4": {
