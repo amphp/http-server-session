@@ -24,11 +24,10 @@
   },
   "autoload": {
     "psr-4": {
-      "Aerys\\Session\\": "lib/"
+      "Aerys\\": "lib/"
     },
     "files": [
-      "lib/functions.php",
-      "lib/Session.php"
+      "lib/functions.php"
     ]
   },
   "repositories": [
