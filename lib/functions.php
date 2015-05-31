@@ -7,9 +7,9 @@ namespace Aerys;
  * @return Middleware to be used with Router or Host::use()
  */
 function session(array $config = []) {
-    assert(isset($config["driver"]) && $config["driver"] instanceof SessionDriver);
+    assert(isset($config["driver"]) && $config["driver"] instanceof Session\Driver);
 
-    return new class($config) extends Middleware {
+    return new class($config) implements Middleware {
         private $config;
 
         public function __construct($config) {
