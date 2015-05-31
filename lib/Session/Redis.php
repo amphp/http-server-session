@@ -10,6 +10,8 @@ use Amp\Success;
 use function Amp\pipe;
 
 class Redis implements Driver {
+    const COMPRESSION_THRESHOLD = 256;
+
     private $reactor;
     private $client;
     private $mutex;
@@ -53,7 +55,17 @@ class Redis implements Driver {
                 return $this->unlock($id);
             });
         } else {
-            return pipe($this->client->set("sess:" . $id, serialize($data), $ttl), function () use ($id) {
+            $data = serialize([$ttl, $data]);
+            $flags = 0;
+
+            if (strlen($data) > self::COMPRESSION_THRESHOLD) {
+                $data = gzdeflate($data, 1);
+                $flags |= 0x01;
+            }
+
+            $data = $flags % 256 . $data;
+
+            return pipe($this->client->set("sess:" . $id, $data, $ttl), function () use ($id) {
                 return $this->unlock($id);
             });
         }
@@ -76,9 +88,20 @@ class Redis implements Driver {
      * @return \Amp\Promise resolving to an array with current session data
      */
     public function read(string $id): Promise {
-        return pipe($this->client->get("sess:" . $id), function ($result) {
+        return pipe($this->client->get("sess:" . $id), function ($result) use ($id) {
             if ($result) {
-                return unserialize($result);
+                $firstByte = $result[0];
+                $result = substr($result, 1);
+
+                if ($firstByte & 0x01) {
+                    $result = gzinflate($result);
+                }
+
+                list($ttl, $data) = unserialize($result);
+
+                return pipe($this->client->expire("sess:" . $id, $ttl), function () use ($data) {
+                    return $data;
+                });
             } else {
                 return [];
             }
