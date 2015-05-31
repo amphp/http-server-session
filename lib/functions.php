@@ -10,13 +10,10 @@ function session(array $config = []) {
     assert(isset($config["driver"]) && $config["driver"] instanceof Session\Driver);
 
     return new class($config) implements Middleware {
-        private $config = [
-            "name" => "session",
-            "cookie_flags" => ["httpOnly"]
-        ];
+        private $config;
 
         public function __construct($config) {
-            $this->config = array_merge($this->config, $config);
+            $this->config = $config;
         }
 
         public function filter(InternalRequest $request) {
@@ -43,19 +40,19 @@ function session(array $config = []) {
             $config = $request->locals["aerys.session.config"];
 
             if (!isset($config["cookie_flags"])) {
-                $config["cookie_flags"] = $request->isEncrypted ? ["secure"] : [];
+                $config["cookie_flags"] = $request->isEncrypted ? ["secure", "httpOnly"] : ["httpOnly"];
             }
 
             if ($sessionId === false) {
-                $cookie = "{$this->config["name"]}=deleted; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                $cookie = "{$config["name"]}=deleted; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
             } else {
-                $cookie = "{$this->config["name"]}=$sessionId";
+                $cookie = "{$config["name"]}=$sessionId";
                 if ($config["ttl"] >= 0) {
                     $cookie .= "; Expires=" . date(\DateTime::RFC1123, time() + $config["ttl"]);
                 }
             }
 
-            foreach ($this->config["cookie_flags"] as $name => $value) {
+            foreach ($config["cookie_flags"] as $name => $value) {
                 if (is_int($name)) {
                     $cookie .= "; $value";
                 } else {

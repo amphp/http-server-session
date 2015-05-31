@@ -27,13 +27,14 @@
       "Aerys\\Session\\": "lib/"
     },
     "files": [
-      "lib/functions.php"
+      "lib/functions.php",
+      "lib/Session.php"
     ]
   },
   "repositories": [
     {
       "type": "git",
-      "url": "git@github.com:rdlowrey/aerys"
+      "url": "https://github.com/rdlowrey/aerys"
     }
   ]
 }

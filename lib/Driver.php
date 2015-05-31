@@ -12,11 +12,12 @@ interface Driver {
     public function open(string $id): Promise;
 
     /**
-     * Saves and unlocks a session (an empty array is equivalent to destruction of the session)
-     * @param array $data to store
+     * Saves and unlocks a session
+     * @param array $data to store (an empty array is equivalent to destruction of the session)
+     * @param int $ttl time until session expiration (always > 0)
      * @return \Amp\Promise resolving after success
      */
-    public function save(string $id, array $data): Promise;
+    public function save(string $id, array $data, int $ttl): Promise;
 
     /**
      * Regenerates a session id
