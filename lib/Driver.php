@@ -12,7 +12,7 @@ interface Driver {
     public function open(string $id): Promise;
 
     /**
-     * Saves and unlocks a session
+     * Saves and unlocks a session (an empty array is equivalent to destruction of the session)
      * @param array $data to store
      * @return \Amp\Promise resolving after success
      */
@@ -35,10 +35,4 @@ interface Driver {
      * @return \Amp\Promise resolving to an array with current session data
      */
     public function unlock(string $id): Promise;
-
-    /**
-     * Destroys the session
-     * @return \Amp\Promise resolving after success
-     */
-    public function destroy(string $id): Promise;
 }
