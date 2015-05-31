@@ -189,7 +189,7 @@ class Session implements \ArrayAccess {
         }
 
         if ($this->id) {
-            $promise = $this->driver->destroy($this->id);
+            $promise = $this->driver->save($this->id, []);
             $this->setId(false);
             $this->data = [];
             $this->writable = false;
