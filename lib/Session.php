@@ -3,11 +3,9 @@
 namespace Aerys;
 
 use Aerys\Session\LockException;
-use Amp\{
-    Promise,
-    Success,
-    function pipe
-};
+use Amp\Promise;
+use Amp\Success;
+use function Amp\pipe;
 
 class Session implements \ArrayAccess {
     const CONFIG = [
