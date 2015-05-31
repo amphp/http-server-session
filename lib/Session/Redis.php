@@ -21,7 +21,7 @@ class Redis implements Driver {
         $this->reactor = $reactor;
         $this->locks = [];
 
-        $this->reactor->repeat(function() {
+        $this->reactor->repeat(function () {
             foreach ($this->locks as $id => $token) {
                 $this->mutex->renew($id, $token);
             }
@@ -35,7 +35,7 @@ class Redis implements Driver {
     public function open(string $id): Promise {
         $token = uniqid("", true);
 
-        return pipe($this->mutex->lock($id, $token), function() use ($id, $token) {
+        return pipe($this->mutex->lock($id, $token), function () use ($id, $token) {
             $this->locks[$id] = $token;
             return $this->read($id);
         });
@@ -48,14 +48,12 @@ class Redis implements Driver {
      * @return \Amp\Promise resolving after success
      */
     public function save(string $id, array $data, int $ttl): Promise {
-        // @TODO handle $ttl
-
         if (empty($data)) {
-            return pipe($this->client->del("sess:" . $id), function() use ($id) {
+            return pipe($this->client->del("sess:" . $id), function () use ($id) {
                 return $this->unlock($id);
             });
         } else {
-            return pipe($this->client->set("sess:" . $id, serialize($data)), function() use ($id) {
+            return pipe($this->client->set("sess:" . $id, serialize($data), $ttl), function () use ($id) {
                 return $this->unlock($id);
             });
         }
@@ -68,7 +66,7 @@ class Redis implements Driver {
     public function regenerate(string $oldId, string $newId): Promise {
         $token = $this->locks[$oldId] ?? "";
 
-        return pipe($this->mutex->lock($newId, $token), function() use ($oldId, $token) {
+        return pipe($this->mutex->lock($newId, $token), function () use ($oldId, $token) {
             return $this->mutex->unlock($oldId, $token);
         });
     }
@@ -78,7 +76,7 @@ class Redis implements Driver {
      * @return \Amp\Promise resolving to an array with current session data
      */
     public function read(string $id): Promise {
-        return pipe($this->client->get("sess:" . $id), function($result) {
+        return pipe($this->client->get("sess:" . $id), function ($result) {
             if ($result) {
                 return unserialize($result);
             } else {
@@ -95,7 +93,7 @@ class Redis implements Driver {
         $token = $this->locks[$id] ?? "";
 
         if ($token) {
-            return pipe($this->mutex->unlock($id, $token), function() use ($id) {
+            return pipe($this->mutex->unlock($id, $token), function () use ($id) {
                 unset($this->locks[$id]);
             });
         }
