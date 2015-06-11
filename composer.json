@@ -1,6 +1,6 @@
 {
-  "name": "amphp/aeryssession",
-  "homepage": "https://github.com/amphp/aeryssession",
+  "name": "amphp/aerys-session",
+  "homepage": "https://github.com/amphp/aerys-session",
   "description": "Session management for Aerys server",
   "license": "MIT",
   "authors": [
