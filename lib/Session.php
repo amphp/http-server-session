@@ -76,7 +76,7 @@ class Session {
 
     public function has($key) {
         if ($this->state === self::PENDING) {
-            throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
+            throw new LockException("Session is in lock pending state, wait until the Promise returned by Session::open() is resolved");
         }
 
         return array_key_exists($key, $this->data);
@@ -84,7 +84,7 @@ class Session {
 
     public function get($key) {
         if ($this->state === self::PENDING) {
-            throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
+            throw new LockException("Session is in lock pending state, wait until the Promise returned by Session::open() is resolved");
         }
 
         return $this->data[$key] ?? null;
@@ -93,7 +93,7 @@ class Session {
     public function set($key, $value) {
         if ($this->state !== self::LOCKED) {
             if ($this->state === self::PENDING) {
-                throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+                throw new LockException("Session is not yet locked, wait until the Promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
             }
@@ -102,7 +102,15 @@ class Session {
         $this->data[$key] = $value;
     }
 
-    public function offsetUnset($offset) {
+    public function unset($offset) {
+        if ($this->state !== self::LOCKED) {
+            if ($this->state === self::PENDING) {
+                throw new LockException("Session is not yet locked, wait until the Promise returned by Session::open() is resolved");
+            } else {
+                throw new LockException("Session is not locked, can't write");
+            }
+        }
+
         unset($this->data[$offset]);
     }
 
@@ -146,7 +154,7 @@ class Session {
     public function save(): Promise {
         if ($this->state !== self::LOCKED) {
             if ($this->state === self::PENDING) {
-                throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+                throw new LockException("Session is not yet locked, wait until the Promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
             }
@@ -239,7 +247,7 @@ class Session {
     public function regenerate(): Promise {
         if ($this->state !== self::LOCKED) {
             if ($this->state === self::PENDING) {
-                throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+                throw new LockException("Session is not yet locked, wait until the Promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
             }
@@ -264,7 +272,7 @@ class Session {
     public function destroy(): Promise {
         if ($this->state !== self::LOCKED) {
             if ($this->state === self::PENDING) {
-                throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
+                throw new LockException("Session is not yet locked, wait until the Promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
             }
