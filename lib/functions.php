@@ -16,7 +16,7 @@ function session(array $config = []) {
             $this->config = $config;
         }
 
-        public function do(InternalRequest $request) {
+        public function do(InternalRequest $request, Options $options) {
             $request->locals["aerys.session.config"] = $this->config;
 
             $message = "";
