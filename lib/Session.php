@@ -7,7 +7,7 @@ use Amp\Promise;
 use Amp\Success;
 use function Amp\pipe;
 
-class Session implements \ArrayAccess {
+class Session {
     const CONFIG = [
         "name" => "AerysSessionId",
         "ttl" => -1,
@@ -74,23 +74,23 @@ class Session implements \ArrayAccess {
         $this->request->setLocalVar("aerys.session.config", $config);
     }
 
-    public function offsetExists($offset) {
+    public function has($key) {
         if ($this->state === self::LOCKING) {
             throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
         }
 
-        return array_key_exists($offset, $this->data);
+        return array_key_exists($key, $this->data);
     }
 
-    public function offsetGet($offset) {
+    public function get($key) {
         if ($this->state === self::LOCKING) {
             throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
         }
 
-        return $this->data[$offset] ?? null; // semantics of ArrayAccess upon IS fetch...
+        return $this->data[$key] ?? null;
     }
 
-    public function offsetSet ($offset, $value) {
+    public function set($key, $value) {
         if ($this->state !== self::LOCKED) {
             if ($this->state === self::LOCKING) {
                 throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
@@ -99,7 +99,7 @@ class Session implements \ArrayAccess {
             }
         }
 
-        $this->data[$offset] = $value;
+        $this->data[$key] = $value;
     }
 
     public function offsetUnset($offset) {
@@ -110,7 +110,7 @@ class Session implements \ArrayAccess {
      * Creates a lock and reads the current session data
      * @return \Amp\Promise resolving after success
      */
-    public function open (): Promise {
+    public function open(): Promise {
         if ($this->state !== self::UNLOCKED) {
             throw new LockException("Session already opened, can't open again");
         }
@@ -201,7 +201,7 @@ class Session implements \ArrayAccess {
                     return $this;
                 });
             });
-            $promise->when(function () {
+            $promise->when(function() {
                 $this->state = self::UNLOCKED;
             });
             return $promise;
