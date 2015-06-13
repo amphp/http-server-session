@@ -33,6 +33,7 @@ class Session implements \ArrayAccess {
     public function  __construct(Request $request) {
         $this->request = $request;
         $config = $request->getLocalVar("aerys.session.config");
+		assert(\is_array($config), 'No middleware was loaded or Aerys\Session class instantiated in invalid context');
         $this->driver = $config["driver"];
 
         $config += static::CONFIG;
