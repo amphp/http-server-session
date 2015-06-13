@@ -19,23 +19,13 @@ function session(array $config = []) {
         public function do(InternalRequest $request, Options $options) {
             $request->locals["aerys.session.config"] = $this->config;
 
-            $message = "";
-            $headerEndOffset = null;
-            do {
-                $message .= ($part = yield);
-            } while ($part !== Filter::END && ($headerEndOffset = \strpos($message, "\r\n\r\n")) === false);
-            if (!isset($headerEndOffset)) {
-                return $message;
-            }
+            $headers = yield;
 
             $sessionId = $request->locals["aerys.session.id"] ?? null;
             if (!isset($sessionId)) {
-                return $message;
+                return $headers;
             }
 
-            $startLineAndHeaders = substr($message, 0, $headerEndOffset);
-            list($startLine, $headers) = explode("\r\n", $startLineAndHeaders, 2);
-            $body = substr($message, $headerEndOffset + 4);
 
             $config = $request->locals["aerys.session.config"];
 
@@ -60,9 +50,8 @@ function session(array $config = []) {
                 }
             }
 
-            $headers = addHeader($headers, "Set-Cookie", $cookie);
-
-            return "{$startLine}\r\n{$headers}\r\n\r\n{$body}";
+            $headers["set-cookie"][] = $cookie;
+            return $headers;
         }
     };
 }
