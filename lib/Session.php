@@ -121,7 +121,7 @@ class Session {
         } else {
             $this->state = self::LOCKING;
 
-            $promise = pipe($this->driver->open($this->id), function (array $data) {
+            $promise = pipe($this->driver->open($this->id), function(array $data) {
                 if (empty($data)) {
                     $this->setId(false);
                 }
@@ -129,7 +129,7 @@ class Session {
                 $this->data = $data;
                 return $this;
             });
-            $promise->when(function ($e) {
+            $promise->when(function($e) {
                 if ($e) {
                     $this->state = self::UNLOCKED;
                 }
@@ -171,7 +171,7 @@ class Session {
             throw new LockException("Session is locked, can't read in locked state; use the return value of the call to \\Aerys\\Session::open()");
         }
 
-        return $this->id === null ? new Success($this) : pipe($this->driver->read($this->id), function (array $data) {
+        return $this->id === null ? new Success($this) : pipe($this->driver->read($this->id), function(array $data) {
             if (empty($data)) {
                 $this->setId(false);
             }
@@ -194,13 +194,13 @@ class Session {
         if ($this->id) {
             $this->state = self::LOCKING;
 
-            $promise = pipe($this->driver->unlock(), function () {
-                return pipe($this->config["driver"]->read($this->id), function (array $data) {
+            $promise = pipe($this->driver->unlock(), function() {
+                return pipe($this->config["driver"]->read($this->id), function(array $data) {
                     $this->data = $data;
                     return $this;
                 });
             });
-            $promise->when(function () {
+            $promise->when(function() {
                 $this->state = self::UNLOCKED;
             });
             return $promise;
@@ -228,7 +228,7 @@ class Session {
             $new = $this->generateId();
             $promise = $this->driver->regenerate($this->id, $new);
             $this->setId($new);
-            return pipe($promise, function () {
+            return pipe($promise, function() {
                 return $this;
             });
         } else {
@@ -254,7 +254,7 @@ class Session {
             $this->setId(false);
             $this->data = [];
             $this->state = false;
-            return pipe($promise, function () {
+            return pipe($promise, function() {
                 return $this;
             });
         } else {
