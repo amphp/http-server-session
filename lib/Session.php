@@ -28,12 +28,12 @@ class Session {
 
     const UNLOCKED = 0;
     const LOCKED = 1;
-    const LOCKING = 2;
+    const PENDING = 2;
 
     public function  __construct(Request $request) {
         $this->request = $request;
         $config = $request->getLocalVar("aerys.session.config");
-		assert(\is_array($config), 'No middleware was loaded or Aerys\Session class instantiated in invalid context');
+        assert(\is_array($config), 'No middleware was loaded or Aerys\Session class instantiated in invalid context');
         $this->driver = $config["driver"];
 
         $config += static::CONFIG;
@@ -75,7 +75,7 @@ class Session {
     }
 
     public function has($key) {
-        if ($this->state === self::LOCKING) {
+        if ($this->state === self::PENDING) {
             throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
         }
 
@@ -83,7 +83,7 @@ class Session {
     }
 
     public function get($key) {
-        if ($this->state === self::LOCKING) {
+        if ($this->state === self::PENDING) {
             throw new LockException("Session is in lock pending state, wait until the promise returned by Session::open() is resolved");
         }
 
@@ -92,7 +92,7 @@ class Session {
 
     public function set($key, $value) {
         if ($this->state !== self::LOCKED) {
-            if ($this->state === self::LOCKING) {
+            if ($this->state === self::PENDING) {
                 throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
@@ -120,7 +120,7 @@ class Session {
 
             return new Success($this);
         } else {
-            $this->state = self::LOCKING;
+            $this->state = self::PENDING;
 
             $promise = pipe($this->driver->open($this->id), function(array $data) {
                 if (empty($data)) {
@@ -145,22 +145,39 @@ class Session {
      */
     public function save(): Promise {
         if ($this->state !== self::LOCKED) {
-            if ($this->state === self::LOCKING) {
+            if ($this->state === self::PENDING) {
                 throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
             }
         }
 
-        $this->state = self::UNLOCKED;
+        $this->state = self::PENDING;
         if (!$this->id && $this->data) {
             $this->setId($this->generateId());
         }
+
         /* if we wait until "browser close", save the session for at most $config["maxlife"] (just to not have the sessions indefinitely...) */
-        return pipe($this->driver->save($this->id, $this->data, $this->ttl == -1 ? $this->maxlife : $this->ttl + 1), function() {
-            $this->saveConfig();
-            return $this;
+        $deferred = new Deferred;
+        $this->driver->save($this->id, $this->data, $this->ttl == -1 ? $this->maxlife : $this->ttl + 1)->when(function($e) use ($deferred) {
+            if ($e) {
+                $this->driver->read($this->id)->when(function($unlockE, $data) use ($deferred, $e) {
+                    $this->state = self::UNLOCKED;
+                    if ($unlockE) {
+                        $this->data = [];
+                        $deferred->fail($unlockE);
+                    } else {
+                        $this->data = $data;
+                        $deferred->fail($e);
+                    }
+                });
+            } else {
+                $this->saveConfig();
+                $this->state = self::UNLOCKED;
+                $deferred->succeed($this);
+            }
         });
+        return $deferred;
     }
 
     /**
@@ -187,22 +204,25 @@ class Session {
      */
     public function unlock(): Promise {
         if (!$this->state) {
-            throw new LockException("Session is not locked, can't write");
+            throw new LockException("Session is not locked, can't unlock");
         }
 
         $this->data = [];
 
         if ($this->id) {
-            $this->state = self::LOCKING;
+            $this->state = self::PENDING;
 
             $promise = pipe($this->driver->unlock(), function() {
-                return pipe($this->config["driver"]->read($this->id), function(array $data) {
+                return pipe($this->driver->read($this->id), function(array $data) {
                     $this->data = $data;
                     return $this;
                 });
             });
-            $promise->when(function() {
+            $promise->when(function($e) {
                 $this->state = self::UNLOCKED;
+                if ($e) {
+                    $this->data = [];
+                }
             });
             return $promise;
         } else {
@@ -218,7 +238,7 @@ class Session {
      */
     public function regenerate(): Promise {
         if ($this->state !== self::LOCKED) {
-            if ($this->state === self::LOCKING) {
+            if ($this->state === self::PENDING) {
                 throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
@@ -243,7 +263,7 @@ class Session {
      */
     public function destroy(): Promise {
         if ($this->state !== self::LOCKED) {
-            if ($this->state === self::LOCKING) {
+            if ($this->state === self::PENDING) {
                 throw new LockException("Session is not yet locked, wait until the promise returned by Session::open() is resolved");
             } else {
                 throw new LockException("Session is not locked, can't write");
@@ -271,7 +291,7 @@ class Session {
 
 	public function __debugInfo() {
 		return [
-			"state" => ["UNLOCKED", "LOCKED", "LOCKING"][$this->state],
+			"state" => ["UNLOCKED", "LOCKED", "PENDING"][$this->state],
 			"id" => $this->id,
 			"driver" => get_class($this->driver),
 			"ttl" => $this->ttl,
