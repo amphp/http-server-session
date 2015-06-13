@@ -26,7 +26,6 @@ function session(array $config = []) {
                 return $headers;
             }
 
-
             $config = $request->locals["aerys.session.config"];
 
             if (!isset($config["cookie_flags"])) {

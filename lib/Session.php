@@ -268,4 +268,15 @@ class Session {
             $this->save();
         }
     }
+
+	public function __debugInfo() {
+		return [
+			"state" => ["UNLOCKED", "LOCKED", "LOCKING"][$this->state],
+			"id" => $this->id,
+			"driver" => get_class($this->driver),
+			"ttl" => $this->ttl,
+			"maxlife" => $this->maxlife,
+			"data" => $this->data,
+		];
+	}
 }
