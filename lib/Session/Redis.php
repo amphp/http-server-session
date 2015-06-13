@@ -9,6 +9,7 @@ use Amp\Redis\Mutex;
 use Amp\Success;
 use function Amp\pipe;
 
+/* @TODO use Aerys\Session\Exception; do not let redis exceptions bubble up (set as $previous to Session\Exception) */
 class Redis implements Driver {
     const COMPRESSION_THRESHOLD = 256;
 

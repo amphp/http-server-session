@@ -274,7 +274,7 @@ class Session {
             $promise = $this->driver->save($this->id, []);
             $this->setId(false);
             $this->data = [];
-            $this->state = false;
+            $this->state = self::UNLOCKED;
             return pipe($promise, function() {
                 return $this;
             });

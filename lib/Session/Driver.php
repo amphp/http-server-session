@@ -4,6 +4,10 @@ namespace Aerys\Session;
 
 use Amp\Promise;
 
+/*
+ * When an operation fails, the driver must throw an Aerys\Session\Exception and try to clean up any locks regarding that $id
+ */
+
 interface Driver {
     /**
      * Creates a lock and reads the current session data
