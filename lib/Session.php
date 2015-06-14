@@ -3,6 +3,7 @@
 namespace Aerys;
 
 use Aerys\Session\LockException;
+use Amp\Deferred;
 use Amp\Promise;
 use Amp\Success;
 use function Amp\pipe;
