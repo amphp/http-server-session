@@ -186,7 +186,7 @@ class Session {
                 $deferred->succeed($this);
             }
         });
-        return $deferred;
+        return $deferred->promise();
     }
 
     /**
