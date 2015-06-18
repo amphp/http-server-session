@@ -10,7 +10,7 @@ use function Amp\pipe;
 
 class Session {
     const CONFIG = [
-        "name" => "AerysSessionId",
+        "name" => "session",
         "ttl" => -1,
         "maxlife" => 3600,
     ];
