@@ -33,9 +33,10 @@ function session(array $config = []) {
             }
 
             if ($sessionId === false) {
-                $cookie = "{$config["name"]}=deleted; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                $cookie = "{$config["name"]}=; Expires=Thu, 01 Jan 1970 00:00:00 GMT";
             } else {
                 $cookie = "{$config["name"]}=$sessionId";
+
                 if ($config["ttl"] >= 0) {
                     $cookie .= "; Expires=" . date(\DateTime::RFC1123, time() + $config["ttl"]);
                 }
@@ -48,6 +49,8 @@ function session(array $config = []) {
                     $cookie .= "; $name=$value";
                 }
             }
+
+            $cookie .= "; Path={$config["path"]}";
 
             $headers["set-cookie"][] = $cookie;
             return $headers;

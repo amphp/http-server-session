@@ -13,6 +13,7 @@ class Session {
         "name" => "session",
         "ttl" => -1,
         "maxlife" => 3600,
+        "path" => "/",
     ];
 
     private $request;
