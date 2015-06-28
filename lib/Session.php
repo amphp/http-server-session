@@ -299,7 +299,7 @@ class Session {
 
     public function __destruct() {
         if ($this->state === self::LOCKED) {
-            $this->save();
+            throw new LockException("Session must be unlocked (or saved) before being freed");
         }
     }
 
