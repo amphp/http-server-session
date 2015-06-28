@@ -162,8 +162,12 @@ class Session {
             }
         }
 
+        if (!$this->data) {
+            return $this->destroy();
+        }
+
         $this->state = self::PENDING;
-        if (!$this->id && $this->data) {
+        if (!$this->id) {
             $this->setId($this->generateId());
         }
 
