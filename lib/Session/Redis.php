@@ -3,28 +3,26 @@
 namespace Aerys\Session;
 
 use Amp\Promise;
-use Amp\Reactor;
 use Amp\Redis\Client;
 use Amp\Redis\Mutex;
 use Amp\Success;
 use function Amp\pipe;
+use function Amp\repeat;
 
 /* @TODO use Aerys\Session\Exception; do not let redis exceptions bubble up (set as $previous to Session\Exception) */
 class Redis implements Driver {
     const COMPRESSION_THRESHOLD = 256;
 
-    private $reactor;
     private $client;
     private $mutex;
     private $locks;
 
-    public function __construct(Client $client, Mutex $mutex, Reactor $reactor) {
+    public function __construct(Client $client, Mutex $mutex) {
         $this->client = $client;
         $this->mutex = $mutex;
-        $this->reactor = $reactor;
         $this->locks = [];
 
-        $this->reactor->repeat(function () {
+        repeat(function () {
             foreach ($this->locks as $id => $token) {
                 $this->mutex->renew($id, $token);
             }

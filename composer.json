@@ -1,7 +1,7 @@
 {
   "name": "amphp/aerys-session",
   "homepage": "https://github.com/amphp/aerys-session",
-  "description": "Session management for Aerys server",
+  "description": "Session management for Aerys server.",
   "license": "MIT",
   "authors": [
     {
@@ -11,16 +11,15 @@
     {
       "name": "Niklas Keller",
       "email": "me@kelunik.com",
-      "homepage": "http://kelunik.com",
       "role": "Developer"
     }
   ],
   "minimum-stability": "dev",
   "require": {
     "php": ">=7.0.0-dev",
-    "amphp/amp": "1.0.x-dev",
+    "amphp/amp": "^1",
     "kelunik/redis-mutex": "dev-master",
-    "amphp/aerys": "dev-wip"
+    "amphp/aerys": "dev-master"
   },
   "autoload": {
     "psr-4": {
