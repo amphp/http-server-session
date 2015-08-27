@@ -157,21 +157,21 @@ class Redis implements Driver {
     public function unlock(string $id): Promise {
         $token = $this->locks[$id] ?? "";
 
-        if ($token) {
-            $promisor = new Deferred;
-
-            $this->mutex->unlock($id, $token)->when(function ($error) use ($id, $promisor) {
-                if ($error) {
-                    $promisor->fail(new Exception("couldn't unlock session", 0, $error));
-                } else {
-                    unset($this->locks[$id]);
-                    $promisor->succeed();
-                }
-            });
-
-            return $promisor->promise();
-        } else {
+        if (!$token) {
             return new Success;
         }
+
+        $promisor = new Deferred;
+
+        $this->mutex->unlock($id, $token)->when(function ($error) use ($id, $promisor) {
+            if ($error) {
+                $promisor->fail(new Exception("couldn't unlock session", 0, $error));
+            } else {
+                unset($this->locks[$id]);
+                $promisor->succeed();
+            }
+        });
+
+        return $promisor->promise();
     }
 }
