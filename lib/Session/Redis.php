@@ -14,10 +14,10 @@ use function Amp\repeat;
 class Redis implements Driver {
     const COMPRESSION_THRESHOLD = 256;
 
-    private $client;
-    private $mutex;
-    private $locks;
-    private $repeatTimer;
+    protected $client;
+    protected $mutex;
+    protected $locks;
+    protected $repeatTimer;
 
     public function __construct(Client $client, Mutex $mutex) {
         $this->client = $client;
