@@ -133,7 +133,7 @@ class Redis implements Driver {
                     $result = gzinflate($result);
                 }
 
-                list($ttl, $data) = json_decode($result);
+                list($ttl, $data) = json_decode($result, true);
 
                 $this->client->expire("sess:" . $id, $ttl)->when(function ($error) use ($data, $promisor) {
                     if ($error) {
