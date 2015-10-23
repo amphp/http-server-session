@@ -11,7 +11,7 @@ use Amp\Promise;
 interface Driver {
     /**
      * Creates a lock and reads the current session data
-     * 
+     *
      * @param string $id The session identifier
      * @return \Amp\Promise resolving to an array with current session data
      */
@@ -19,7 +19,7 @@ interface Driver {
 
     /**
      * Saves and unlocks a session
-     * 
+     *
      * @param string $id The session identifier
      * @param array $data to store (an empty array is equivalent to destruction of the session)
      * @param int $ttl time until session expiration (always > 0)
@@ -29,7 +29,7 @@ interface Driver {
 
     /**
      * Regenerates a session id
-     * 
+     *
      * @param string $oldId A old session identifier
      * @param string $newId A new session identifier, as replacement for $oldId
      * @return \Amp\Promise resolving after success
@@ -38,7 +38,7 @@ interface Driver {
 
     /**
      * Reloads the session contents
-     * 
+     *
      * @param string $id The session identifier
      * @return \Amp\Promise resolving to an array with current session data
      */
@@ -46,7 +46,7 @@ interface Driver {
 
     /**
      * Unlocks the session, reloads data without saving
-     * 
+     *
      * @param string $id The session identifier
      * @return \Amp\Promise resolving to an array with current session data
      */

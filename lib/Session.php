@@ -303,14 +303,14 @@ class Session {
         }
     }
 
-	public function __debugInfo() {
-		return [
-			"state" => ["UNLOCKED", "LOCKED", "PENDING"][$this->state],
-			"id" => $this->id,
-			"driver" => get_class($this->driver),
-			"ttl" => $this->ttl,
-			"maxlife" => $this->maxlife,
-			"data" => $this->data,
-		];
-	}
+    public function __debugInfo() {
+        return [
+            "state" => ["UNLOCKED", "LOCKED", "PENDING"][$this->state],
+            "id" => $this->id,
+            "driver" => get_class($this->driver),
+            "ttl" => $this->ttl,
+            "maxlife" => $this->maxlife,
+            "data" => $this->data,
+        ];
+    }
 }
