@@ -5,34 +5,25 @@
   "license": "MIT",
   "authors": [
     {
-      "name": "Bob Weinand",
-      "role": "Creator"
+      "name": "Bob Weinand"
     },
     {
       "name": "Niklas Keller",
-      "email": "me@kelunik.com",
-      "role": "Developer"
+      "email": "me@kelunik.com"
     }
   ],
-  "minimum-stability": "dev",
   "require": {
-    "php": ">=7.0.0-dev",
+    "php": "^7",
     "amphp/amp": "^1",
-    "kelunik/redis-mutex": "dev-master",
-    "amphp/aerys": "dev-master"
+    "kelunik/redis-mutex": "^0.1",
+    "amphp/aerys": "^0.3"
   },
   "autoload": {
     "psr-4": {
-      "Aerys\\": "lib/"
+      "Aerys\\": "lib"
     },
     "files": [
       "lib/functions.php"
     ]
-  },
-  "repositories": [
-    {
-      "type": "git",
-      "url": "https://github.com/rdlowrey/aerys"
-    }
-  ]
+  }
 }
