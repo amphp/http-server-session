@@ -22,6 +22,7 @@ function session(array $config = []) {
             $headers = yield;
 
             $sessionId = $request->locals["aerys.session.id"] ?? null;
+
             if (!isset($sessionId)) {
                 return $headers;
             }
@@ -29,7 +30,7 @@ function session(array $config = []) {
             $config = $request->locals["aerys.session.config"];
 
             if (!isset($config["cookie_flags"])) {
-                $config["cookie_flags"] = $request->isEncrypted ? ["secure", "httpOnly"] : ["httpOnly"];
+                $config["cookie_flags"] = $request->client->isEncrypted ? ["secure", "httpOnly"] : ["httpOnly"];
             }
 
             if ($sessionId === false) {
@@ -53,6 +54,7 @@ function session(array $config = []) {
             $cookie .= "; Path={$config["path"]}";
 
             $headers["set-cookie"][] = $cookie;
+
             return $headers;
         }
     };
