@@ -68,6 +68,8 @@ function session(array $config = []) {
 
                     $headers["cache-control"][$key] = implode(",", $tokens);
                 }
+            } else {
+                $headers["cache-control"][] = "private";
             }
 
             return $headers;
