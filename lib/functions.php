@@ -55,6 +55,21 @@ function session(array $config = []) {
 
             $headers["set-cookie"][] = $cookie;
 
+            if (isset($headers["cache-control"])) {
+                foreach ($headers["cache-control"] as $key => $value) {
+                    $tokens = array_map("trim", explode(",", $value));
+                    $tokens = array_filter($tokens, function($token) {
+                        return $token !== "public";
+                    });
+
+                    if (!in_array("private", $tokens, true)) {
+                        $tokens[] = "private";
+                    }
+
+                    $headers["cache-control"][$key] = implode(",", $tokens);
+                }
+            }
+
             return $headers;
         }
     };
