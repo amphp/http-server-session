@@ -5,7 +5,8 @@
   "license": "MIT",
   "authors": [
     {
-      "name": "Bob Weinand"
+      "name": "Bob Weinand",
+      "email": "bobwei9@hotmail.com"
     },
     {
       "name": "Niklas Keller",
@@ -16,7 +17,7 @@
     "php": "^7",
     "amphp/amp": "^1",
     "kelunik/redis-mutex": "^0.1",
-    "amphp/aerys": "^0.3"
+    "amphp/aerys": ">=0.3"
   },
   "autoload": {
     "psr-4": {
