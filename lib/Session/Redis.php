@@ -108,7 +108,7 @@ class Redis implements Driver {
                 $promisor->fail(new Exception("couldn't acquire lock for new session id", 0, $error));
             } else {
                 $this->locks[$newId] = $token;
-                $promisor->succeed($this->unlock($oldId));
+                $promisor->succeed($this->save($oldId, [], 0));
             }
         });
 
