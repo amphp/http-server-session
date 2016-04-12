@@ -2,6 +2,7 @@
 
 namespace Aerys;
 
+use Aerys\Session\Driver;
 use Aerys\Session\LockException;
 use Amp\Deferred;
 use Amp\Promise;
@@ -16,8 +17,9 @@ class Session {
         "path" => "/",
     ];
 
-    private $request;
+    /** @var Driver driver */
     private $driver;
+    private $request;
     private $id; // usually _the id_, false when expired (empty session data), null when not set at all
     private $data = [];
     private $state = self::UNLOCKED;
@@ -226,7 +228,7 @@ class Session {
         if ($this->id) {
             $this->state = self::PENDING;
 
-            $promise = pipe($this->driver->unlock(), function() {
+            $promise = pipe($this->driver->unlock($this->id), function() {
                 return pipe($this->driver->read($this->id), function(array $data) {
                     $this->data = $data;
                     return $this;
