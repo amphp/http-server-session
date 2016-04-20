@@ -265,8 +265,8 @@ class Session {
         if ($this->id) {
             $new = $this->generateId();
             $promise = $this->driver->regenerate($this->id, $new);
-            $this->setId($new);
-            return pipe($promise, function() {
+            return pipe($promise, function() use ($new) {
+                $this->setId($new);
                 return $this;
             });
         } else {
