@@ -195,7 +195,8 @@ class Session {
     }
 
     /**
-     * Reloads the session contents and locks
+     * Reloads the session contents without lock
+     * Note: if the session needs to be altered, use open()
      * @return \Amp\Promise resolving after success
      */
     public function read(): Promise {
