@@ -3,11 +3,12 @@
 namespace Aerys;
 
 /**
- * @param array $config must contain driver
+ * @param Session\Driver $driver
+ * @param array $config For defaults @see Session::CONFIG
  * @return Middleware to be used with Router or Host::use()
  */
-function session(array $config) {
-    assert(isset($config["driver"]) && $config["driver"] instanceof Session\Driver);
+function session(Session\Driver $driver, array $config = []) {
+    $config["driver"] = $driver;
 
     return new class($config) implements Middleware {
         private $config;
