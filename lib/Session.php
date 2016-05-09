@@ -287,11 +287,12 @@ class Session {
             }
         }
 
+        $this->data = [];
+        $this->state = self::UNLOCKED;
+
         if ($this->id) {
             $promise = $this->driver->save($this->id, [], $this->ttl == -1 ? $this->maxlife : $this->ttl + 1);
             $this->setId(false);
-            $this->data = [];
-            $this->state = self::UNLOCKED;
             return pipe($promise, function() {
                 return $this;
             });
