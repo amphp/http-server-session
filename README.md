@@ -21,28 +21,39 @@ $ composer require amphp/aerys-session
 $redis = new Amp\Redis\Client("tcp://localhost:6379");
 $mutex = new Amp\Redis\Mutex("tcp://localhost:6379");
 
-$router->use(Aerys\session([
-    "driver" => new Aerys\Session\Redis($redis, $mutex)
-]));
+$router->use(
+    Aerys\session(new Aerys\Session\Redis($redis, $mutex))
+);
 ```
 
 ## Using the Session
 
 ```php
 public function respondToRequest(Request $request, Response $response) {
-    $session = yield (new Aerys\Session($request))->read();
+    $session = new Aerys\Session($request);
+
+    // you need to read the session before you can access the data from it
+    yield $session->read();
 
     if (!$session->has("user")) {
         $response
             ->setStatus(401)
             ->end("Unauthorised");
+
+        return;
     }
 
     $user = $session->get("user");
 
     // ...
 
+    // you need to open the session for writing before you can write to it
+    yield $session->open();
+
     $session->set("token", $token);
+
+    // don't forget to save the session...
+    yield $session->save();
 }
 ```
 
@@ -50,7 +61,6 @@ public function respondToRequest(Request $request, Response $response) {
 
 - [Official Documentation](http://amphp.org/aerys)
 - [Getting Started with Aerys](http://blog.kelunik.com/2015/10/21/getting-started-with-aerys.html)
-- [Getting Started with Aerys WebSockets](http://blog.kelunik.com/2015/10/20/getting-started-with-aerys-websockets.html)
 
 ## Security
 
