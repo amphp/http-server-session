@@ -63,7 +63,7 @@ public function respondToRequest(Request $request, Response $response) {
 
 ## Security
 
-If you discover any security related issues, please email bobwei9@hotmail.com or me@kelunik.com instead of using the issue tracker.
+If you discover any security related issues, please email `bobwei9@hotmail.com` or `me@kelunik.com` instead of using the issue tracker.
 
 ## License
 
