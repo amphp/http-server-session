@@ -7,7 +7,7 @@ use Aerys\Session\LockException;
 use Amp\Deferred;
 use Amp\Promise;
 use Amp\Success;
-use function Amp\pipe;
+use function Amp\call;
 
 class Session {
     const CONFIG = [
@@ -34,7 +34,7 @@ class Session {
     const LOCKED = 1;
     const PENDING = 2;
 
-    public function  __construct(Request $request) {
+    public function __construct(Request $request) {
         $this->request = $request;
         $config = $request->getLocalVar("aerys.session.config");
         assert(\is_array($config), 'No middleware was loaded or Aerys\Session class instantiated in invalid context');
@@ -64,11 +64,12 @@ class Session {
     }
 
     /**
-     * Set a TTL (in seconds), so that the session expires after that time
+     * Set a TTL (in seconds), so that the session expires after that time.
      *
-     * @param int $ttl sets a ttl, -1 to disable it [means: cookie persists until browser close, or $config["maxlife"], whatever comes first]
+     * @param int $ttl sets a ttl, -1 to disable it [means: cookie persists until browser close, or $config["maxlife"],
+     *     whatever comes first]
      */
-    public function setTTL(int $ttl) {
+    public function setTtl(int $ttl) {
         $this->ttl = $ttl;
     }
 
@@ -119,8 +120,9 @@ class Session {
     }
 
     /**
-     * Creates a lock and reads the current session data
-     * @return \Amp\Promise resolving after success
+     * Creates a lock and reads the current session data.
+     *
+     * @return Promise Resolving after success.
      */
     public function open(): Promise {
         if ($this->state !== self::UNLOCKED) {
@@ -134,25 +136,30 @@ class Session {
         } else {
             $this->state = self::PENDING;
 
-            $promise = pipe($this->driver->open($this->id), function(array $data) {
-                if (empty($data)) {
-                    $this->setId(false);
-                }
-                $this->state = self::LOCKED;
-                $this->data = $data;
-                return $this;
-            });
-            $promise->when(function($e) {
-                if ($e) {
+            return call(function () {
+                try {
+                    $data = yield $this->driver->open($this->id);
+
+                    if (empty($data)) {
+                        $this->setId(false);
+                    }
+
+                    $this->state = self::LOCKED;
+                    $this->data = $data;
+
+                    return $this;
+                } catch (\Throwable $e) {
                     $this->state = self::UNLOCKED;
+
+                    throw $e;
                 }
             });
-            return $promise;
         }
     }
 
     /**
      * Saves and unlocks a session
+     *
      * @return \Amp\Promise resolving after success
      */
     public function save(): Promise {
@@ -175,9 +182,9 @@ class Session {
 
         /* if we wait until "browser close", save the session for at most $config["maxlife"] (just to not have the sessions indefinitely...) */
         $deferred = new Deferred;
-        $this->driver->save($this->id, $this->data, $this->ttl == -1 ? $this->maxlife : $this->ttl + 1)->when(function($e) use ($deferred) {
+        $this->driver->save($this->id, $this->data, $this->ttl == -1 ? $this->maxlife : $this->ttl + 1)->onResolve(function ($e) use ($deferred) {
             if ($e) {
-                $this->driver->read($this->id)->when(function($unlockE, $data) use ($deferred, $e) {
+                $this->driver->read($this->id)->onResolve(function ($unlockE, $data) use ($deferred, $e) {
                     $this->state = self::UNLOCKED;
                     if ($unlockE) {
                         $this->data = [];
@@ -190,34 +197,44 @@ class Session {
             } else {
                 $this->saveConfig();
                 $this->state = self::UNLOCKED;
-                $deferred->succeed($this);
+                $deferred->resolve($this);
             }
         });
+
         return $deferred->promise();
     }
 
     /**
-     * Reloads the session contents without lock
-     * Note: if the session needs to be altered, use open()
-     * @return \Amp\Promise resolving after success
+     * Reloads the session contents without lock.
+     *
+     * Note: If the session needs to be altered, use `open()`.
+     *
+     * @return Promise Resolving after success.
+     *
+     * @see Session::open()
      */
     public function read(): Promise {
         if ($this->state) {
             throw new LockException("Session is locked, can't read in locked state; use the return value of the call to \\Aerys\\Session::open()");
         }
 
-        return $this->id === null ? new Success($this) : pipe($this->driver->read($this->id), function(array $data) {
+        return $this->id === null ? new Success($this) : call(function () {
+            $data = yield $this->driver->read($this->id);
+
             if (empty($data)) {
                 $this->setId(false);
             }
+
             $this->data = $data;
+
             return $this;
         });
     }
 
     /**
-     * Unlocks the session, reloads data without saving
-     * @return \Amp\Promise resolving after success
+     * Unlocks the session, reloads data without saving.
+     *
+     * @return Promise Resolving after success.
      */
     public function unlock(): Promise {
         if (!$this->state) {
@@ -229,19 +246,21 @@ class Session {
         if ($this->id) {
             $this->state = self::PENDING;
 
-            $promise = pipe($this->driver->unlock($this->id), function() {
-                return pipe($this->driver->read($this->id), function(array $data) {
-                    $this->data = $data;
-                    return $this;
-                });
-            });
-            $promise->when(function($e) {
-                $this->state = self::UNLOCKED;
-                if ($e) {
+            return call(function () {
+                try {
+                    yield $this->driver->unlock($this->id);
+
+                    $this->data = yield $this->driver->read($this->id);
+                } catch (\Throwable $e) {
                     $this->data = [];
+
+                    throw $e;
+                } finally {
+                    $this->state = self::UNLOCKED;
                 }
+
+                return $this;
             });
-            return $promise;
         } else {
             $this->state = self::UNLOCKED;
 
@@ -250,8 +269,9 @@ class Session {
     }
 
     /**
-     * Regenerates a session id
-     * @return \Amp\Promise resolving after success
+     * Regenerates a session id.
+     *
+     * @return Promise Resolving after success.
      */
     public function regenerate(): Promise {
         if ($this->state !== self::LOCKED) {
@@ -264,9 +284,10 @@ class Session {
 
         if ($this->id) {
             $new = $this->generateId();
-            $promise = $this->driver->regenerate($this->id, $new);
-            return pipe($promise, function() use ($new) {
+            return call(function () use ($new) {
+                yield $this->driver->regenerate($this->id, $new);
                 $this->setId($new);
+
                 return $this;
             });
         } else {
@@ -275,8 +296,9 @@ class Session {
     }
 
     /**
-     * Destroys the session
-     * @return \Amp\Promise resolving after success
+     * Destroys the session.
+     *
+     * @return Promise Resolving after success.
      */
     public function destroy(): Promise {
         if ($this->state !== self::LOCKED) {
@@ -291,9 +313,11 @@ class Session {
         $this->state = self::UNLOCKED;
 
         if ($this->id) {
-            $promise = $this->driver->save($this->id, [], $this->ttl == -1 ? $this->maxlife : $this->ttl + 1);
             $this->setId(false);
-            return pipe($promise, function() {
+
+            return call(function () {
+                yield $this->driver->save($this->id, [], $this->ttl == -1 ? $this->maxlife : $this->ttl + 1);
+
                 return $this;
             });
         } else {

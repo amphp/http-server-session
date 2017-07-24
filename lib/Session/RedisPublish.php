@@ -2,49 +2,31 @@
 
 namespace Aerys\Session;
 
-use Amp\Deferred;
 use Amp\Promise;
+use function Amp\call;
 
 class RedisPublish extends Redis {
     public function regenerate(string $oldId, string $newId): Promise {
-        $promisor = new Deferred;
-
-        parent::regenerate($oldId, $newId)->when(function ($error, $result) use ($oldId, $newId, $promisor) {
-            if ($error) {
-                $promisor->fail($error);
-            } else {
-                $this->client->publish("sess:regenerate", "{$oldId} {$newId}")->when(function ($error) use ($result, $promisor) {
-                    if ($error) {
-                        $promisor->fail(new Exception("failed to publish regeneration", 0, $error));
-                    } else {
-                        $promisor->succeed($result);
-                    }
-                });
+        return call(function () use ($oldId, $newId) {
+            try {
+                yield parent::regenerate($oldId, $newId);
+                yield $this->client->publish("sess:regenerate", "{$oldId} {$newId}");
+            } catch (\Throwable $error) {
+                throw new Exception("Failed to publish regeneration", 0, $error);
             }
         });
-
-        return $promisor->promise();
     }
 
     public function save(string $id, array $data, int $ttl): Promise {
-        $promisor = new Deferred;
+        return call(function () use ($id, $data, $ttl) {
+            try {
+                yield parent::save($id, $data, $ttl);
 
-        parent::save($id, $data, $ttl)->when(function ($error, $result) use ($id, $data, $promisor) {
-            if ($error) {
-                $promisor->fail($error);
-            } else {
-                $data = json_encode($data);
-
-                $this->client->publish("sess:update", "{$id} {$data}")->when(function ($error) use ($result, $promisor) {
-                    if ($error) {
-                        $promisor->fail(new Exception("failed to publish update", 0, $error));
-                    } else {
-                        $promisor->succeed($result);
-                    }
-                });
+                $data = \json_encode($data);
+                yield $this->client->publish("sess:update", "{$id} {$data}");
+            } catch (\Throwable $error) {
+                throw new Exception("Failed to publish update", 0, $error);
             }
         });
-
-        return $promisor->promise();
     }
 }

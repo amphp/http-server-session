@@ -2,14 +2,12 @@
 
 namespace Aerys\Session;
 
-use Amp\Deferred;
+use Amp\Loop;
 use Amp\Promise;
 use Amp\Redis\Client;
-use Amp\Redis\Mutex;
 use Amp\Success;
-use function Amp\cancel;
-use function Amp\pipe;
-use function Amp\repeat;
+use Kelunik\RedisMutex\Mutex;
+use function Amp\call;
 
 class Redis implements Driver {
     const COMPRESSION_THRESHOLD = 256;
@@ -24,135 +22,149 @@ class Redis implements Driver {
         $this->mutex = $mutex;
         $this->locks = [];
 
-        $this->repeatTimer = repeat(function () {
+        $this->repeatTimer = Loop::repeat($this->mutex->getTTL() / 2, function () {
             foreach ($this->locks as $id => $token) {
                 $this->mutex->renew($id, $token);
             }
-        }, $this->mutex->getTTL() / 2);
+        });
     }
 
     public function __destruct() {
-        cancel($this->repeatTimer);
+        Loop::cancel($this->repeatTimer);
     }
 
     /**
-     * Creates a lock and reads the current session data
-     * @return \Amp\Promise resolving to an array with current session data
+     * Creates a lock and reads the current session data.
+     *
+     * @param string $id Session ID.
+     *
+     * @return Promise Resolving to an array with current session data.
      */
     public function open(string $id): Promise {
-        $token = uniqid("", true);
-        $promisor = new Deferred;
+        return call(function () use ($id) {
+            $token = bin2hex(random_bytes(16));
 
-        $this->mutex->lock($id, $token)->when(function ($error) use ($id, $token, $promisor) {
-            if ($error) {
-                $promisor->fail(new Exception("couldn't acquire a lock", 0, $error));
-            } else {
-                $this->locks[$id] = $token;
-                $promisor->succeed($this->read($id));
+            try {
+                yield $this->mutex->lock($id, $token);
+            } catch (\Throwable $error) {
+                throw new Exception("Couldn't acquire a lock", 0, $error);
             }
-        });
 
-        return $promisor->promise();
+            $this->locks[$id] = $token;
+
+            return $this->read($id);
+        });
     }
 
     /**
-     * Saves and unlocks a session
-     * @param array $data to store (an empty array is equivalent to destruction of the session)
-     * @param int $ttl time until session expiration (always > 0)
-     * @return \Amp\Promise resolving after success
+     * Saves and unlocks a session.
+     *
+     * @param string $id Session ID.
+     * @param array  $data To store (an empty array is equivalent to destruction of the session).
+     * @param int    $ttl Time until session expiration (always > 0).
+     *
+     * @return Promise resolving after success
      */
     public function save(string $id, array $data, int $ttl): Promise {
-        $promisor = new Deferred;
-
-        if (empty($data)) {
-            $this->client->del("sess:" . $id)->when(function ($error) use ($id, $promisor) {
-                if ($error) {
-                    $promisor->fail(new Exception("couldn't delete session", 0, $error));
-                } else {
-                    $promisor->succeed($this->unlock($id));
+        return call(function () use ($id, $data, $ttl) {
+            if (empty($data)) {
+                try {
+                    yield $this->client->del("sess:" . $id);
+                } catch (\Throwable $error) {
+                    throw new Exception("Couldn't delete session", 0, $error);
                 }
-            });
-        } else {
-            $data = json_encode([$ttl, $data]);
-            $flags = 0;
 
-            if (strlen($data) > self::COMPRESSION_THRESHOLD) {
-                $data = gzdeflate($data, 1);
-                $flags |= 0x01;
+                return $this->unlock($id);
+            } else {
+                $data = json_encode([$ttl, $data]);
+                $flags = 0;
+
+                if (strlen($data) > self::COMPRESSION_THRESHOLD) {
+                    $data = gzdeflate($data, 1);
+                    $flags |= 0x01;
+                }
+
+                $data = $flags % 256 . $data;
+
+                try {
+                    yield $this->client->set("sess:" . $id, $data, $ttl);
+                } catch (\Throwable $error) {
+                    throw new Exception("couldn't persist session data", 0, $error);
+                }
+
+                return $this->unlock($id);
             }
-
-            $data = $flags % 256 . $data;
-
-            $this->client->set("sess:" . $id, $data, $ttl)->when(function ($error) use ($id, $promisor) {
-                if ($error) {
-                    $promisor->fail(new Exception("couldn't persist session data", 0, $error));
-                } else {
-                    $promisor->succeed($this->unlock($id));
-                }
-            });
-        }
-
-        return $promisor->promise();
+        });
     }
 
     /**
-     * Regenerates a session id
-     * @return \Amp\Promise resolving after success
+     * Regenerates a session ID.
+     *
+     * @param string $oldId Old session ID.
+     * @param string $newId New session ID.
+     *
+     * @return Promise Resolving after success.
      */
     public function regenerate(string $oldId, string $newId): Promise {
-        $token = uniqid("", true);
-        $promisor = new Deferred;
+        return call(function () use ($oldId, $newId) {
+            $token = \bin2hex(\random_bytes(16));
 
-        $this->mutex->lock($newId, $token)->when(function ($error) use ($oldId, $newId, $token, $promisor) {
-            if ($error) {
-                $promisor->fail(new Exception("couldn't acquire lock for new session id", 0, $error));
-            } else {
-                $this->locks[$newId] = $token;
-                $promisor->succeed($this->save($oldId, [], 0));
+            try {
+                yield $this->mutex->lock($newId, $token);
+            } catch (\Throwable $error) {
+                throw new Exception("Couldn't acquire lock for new session ID", 0, $error);
             }
-        });
 
-        return $promisor->promise();
+            $this->locks[$newId] = $token;
+
+            return $this->save($oldId, [], 0);
+        });
     }
 
     /**
-     * Reloads the session contents
-     * @return \Amp\Promise resolving to an array with current session data
+     * Reloads the session contents.
+     *
+     * @param string $id Session ID.
+     *
+     * @return Promise resolving to an array with current session data.
      */
     public function read(string $id): Promise {
-        $promisor = new Deferred;
-
-        $this->client->get("sess:" . $id)->when(function ($error, $result) use ($id, $promisor) {
-            if ($error) {
-                $promisor->fail(new Exception("couldn't read session data", 0, $error));
-            } else if ($result) {
-                $firstByte = $result[0];
-                $result = substr($result, 1);
-
-                if ($firstByte & 0x01) {
-                    $result = gzinflate($result);
-                }
-
-                list($ttl, $data) = json_decode($result, true);
-
-                $this->client->expire("sess:" . $id, $ttl)->when(function ($error) use ($data, $promisor) {
-                    if ($error) {
-                        $promisor->fail(new Exception("couldn't set expiry", 0, $error));
-                    } else {
-                        $promisor->succeed($data);
-                    }
-                });
-            } else {
-                $promisor->succeed([]);
+        return call(function () use ($id) {
+            try {
+                $result = yield $this->client->get("sess:" . $id);
+            } catch (\Throwable $error) {
+                throw new Exception("Couldn't read session data", 0, $error);
             }
-        });
 
-        return $promisor->promise();
+            if (!$result) {
+                return [];
+            }
+
+            $firstByte = $result[0];
+            $result = substr($result, 1);
+
+            if ($firstByte & 0x01) {
+                $result = gzinflate($result);
+            }
+
+            list($ttl, $data) = json_decode($result, true);
+
+            try {
+                yield $this->client->expire("sess:" . $id, $ttl);
+            } catch (\Throwable $error) {
+                throw new Exception("couldn't set expiry", 0, $error);
+            }
+
+            return $data;
+        });
     }
 
     /**
-     * Unlocks the session, reloads data without saving
-     * @return \Amp\Promise resolving to an array with current session data
+     * Unlocks the session, reloads data without saving.
+     *
+     * @param string $id Session ID.
+     *
+     * @return Promise resolving to an array with current session data.
      */
     public function unlock(string $id): Promise {
         $token = $this->locks[$id] ?? "";
@@ -161,17 +173,14 @@ class Redis implements Driver {
             return new Success;
         }
 
-        $promisor = new Deferred;
-
-        $this->mutex->unlock($id, $token)->when(function ($error) use ($id, $promisor) {
-            if ($error) {
-                $promisor->fail(new Exception("couldn't unlock session", 0, $error));
-            } else {
-                unset($this->locks[$id]);
-                $promisor->succeed();
+        return call(function () use ($id, $token) {
+            try {
+                yield $this->mutex->unlock($id, $token);
+            } catch (\Throwable $error) {
+                throw new Exception("Couldn't unlock session", 0, $error);
             }
-        });
 
-        return $promisor->promise();
+            unset($this->locks[$id]);
+        });
     }
 }

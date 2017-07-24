@@ -4,7 +4,8 @@ namespace Aerys;
 
 /**
  * @param Session\Driver $driver
- * @param array $config For defaults @see Session::CONFIG
+ * @param array          $config For defaults @see Session::CONFIG
+ *
  * @return Middleware to be used with Router or Host::use()
  */
 function session(Session\Driver $driver, array $config = []) {
@@ -59,7 +60,7 @@ function session(Session\Driver $driver, array $config = []) {
             if (isset($headers["cache-control"])) {
                 foreach ($headers["cache-control"] as $key => $value) {
                     $tokens = array_map("trim", explode(",", $value));
-                    $tokens = array_filter($tokens, function($token) {
+                    $tokens = array_filter($tokens, function ($token) {
                         return $token !== "public";
                     });
 

@@ -1,7 +1,7 @@
 {
   "name": "amphp/aerys-session",
   "homepage": "https://github.com/amphp/aerys-session",
-  "description": "Session management for Aerys server.",
+  "description": "Session management for Aerys.",
   "license": "MIT",
   "authors": [
     {
@@ -14,10 +14,10 @@
     }
   ],
   "require": {
-    "php": "^7",
-    "amphp/amp": "^1",
-    "kelunik/redis-mutex": "^0.1",
-    "amphp/aerys": "^0.3|^0.4|^0.5"
+    "php": ">=7",
+    "amphp/amp": "^2",
+    "kelunik/redis-mutex": "^0.2",
+    "amphp/aerys": "dev-master"
   },
   "autoload": {
     "psr-4": {
