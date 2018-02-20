@@ -5,6 +5,10 @@
     "license": "MIT",
     "authors": [
         {
+            "name": "Aaron Piotrowski",
+            "email": "aaron@trowski.com"
+        },
+        {
             "name": "Bob Weinand",
             "email": "bobwei9@hotmail.com"
         },
@@ -14,17 +18,14 @@
         }
     ],
     "require": {
-        "php": ">=7",
         "amphp/amp": "^2",
-        "kelunik/redis-mutex": "^0.2",
-        "amphp/aerys": "dev-master"
+        "amphp/aerys": "0.8.x-dev as 0.8",
+        "amphp/redis": "^0.3.3",
+        "kelunik/redis-mutex": "^0.2"
     },
     "autoload": {
         "psr-4": {
-            "Aerys\\": "lib"
-        },
-        "files": [
-            "lib/functions.php"
-        ]
+            "Aerys\\Session\\": "lib"
+        }
     }
 }

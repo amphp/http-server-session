@@ -10,13 +10,20 @@ use Amp\Promise;
  */
 interface Driver {
     /**
-     * Creates a lock and reads the current session data.
-     *
-     * @param string $id The session identifier.
+     * Creates a new locked session instance.
      *
      * @return Promise resolving to an array with current session data.
      */
-    public function open(string $id): Promise;
+    public function open(): Promise;
+
+    /**
+     * Reloads the session contents.
+     *
+     * @param string $id The session identifier.
+     *
+     * @return Promise Resolving to an array with current session data.
+     */
+    public function read(string $id): Promise;
 
     /**
      * Saves and unlocks a session.
@@ -33,20 +40,19 @@ interface Driver {
      * Regenerates a session identifier.
      *
      * @param string $oldId A old session identifier.
-     * @param string $newId A new session identifier, as replacement for `$oldId`.
      *
-     * @return Promise resolving after success
+     * @return Promise Resolved with the new identifier.
      */
-    public function regenerate(string $oldId, string $newId): Promise;
+    public function regenerate(string $oldId): Promise;
 
     /**
-     * Reloads the session contents.
+     * Destroys a session with the given identifier.
      *
-     * @param string $id The session identifier.
+     * @param string $id
      *
-     * @return Promise Resolving to an array with current session data.
+     * @return \Amp\Promise
      */
-    public function read(string $id): Promise;
+    public function destroy(string $id): Promise;
 
     /**
      * Unlocks the session, reloads data without saving.
