@@ -5,6 +5,7 @@ namespace Aerys\Session;
 use Aerys\Middleware;
 use Aerys\Request;
 use Aerys\Responder;
+use Aerys\Response;
 use Amp\Http\Cookie\CookieAttributes;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Promise;
@@ -24,14 +25,14 @@ class SessionMiddleware implements Middleware {
 
     /**
      * @param \Aerys\Session\Driver $driver
-     * @param string $cookieName Name of session identifier cookie.
-     * @param \Amp\Http\Cookie\CookieAttributes|null c$cookieAttributes Attribute set for session cookies. Note that
+     * @param \Amp\Http\Cookie\CookieAttributes|null $cookieAttributes Attribute set for session cookies. Note that
      *     the setting for max-age will be overwritten based on the session TTL.
+     * @param string $cookieName Name of session identifier cookie.
      */
     public function __construct(
         Driver $driver,
-        string $cookieName = self::DEFAULT_COOKIE_NAME,
-        CookieAttributes $cookieAttributes = null
+        CookieAttributes $cookieAttributes = null,
+        string $cookieName = self::DEFAULT_COOKIE_NAME
     ) {
         $this->driver = $driver;
         $this->cookieName = $cookieName;
@@ -54,15 +55,17 @@ class SessionMiddleware implements Middleware {
                 $session = yield $this->driver->read($cookie->getValue());
             }
 
-            \assert(
-                $session instanceof Session,
-                \get_class($this->driver) . " must produce an instance of " . Session::class
-            );
+            if (!$session instanceof Session) {
+                throw new \TypeError(\get_class($this->driver) . " must produce an instance of " . Session::class);
+            }
 
             $request->setAttribute(Session::class, $session);
 
-            /** @var \Aerys\Response $response */
             $response = yield $responder->respond($request);
+
+            if (!$response instanceof Response) {
+                throw new \TypeError("Responder must resolve to an instance of " . Response::class);
+            }
 
             $cacheControl = $response->getHeaderArray("cache-control");
 
