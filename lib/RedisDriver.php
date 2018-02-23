@@ -29,18 +29,14 @@ class RedisDriver implements Driver {
     /** @var string Watcher ID for mutex renewals. */
     private $repeatTimer;
 
-    /** @var int */
-    private $ttl;
-
     /**
      * @param \Amp\Redis\Client $client
      * @param \Kelunik\RedisMutex\Mutex $mutex
      * @param int|null $ttl Use null for session-length cookies.
      */
-    public function __construct(Client $client, Mutex $mutex, int $ttl = null) {
+    public function __construct(Client $client, Mutex $mutex) {
         $this->client = $client;
         $this->mutex = $mutex;
-        $this->ttl = $ttl ?? -1;
 
         $this->repeatTimer = Loop::repeat($this->mutex->getTTL() / 2, function () {
             foreach ($this->locks as $id => $token) {
@@ -74,7 +70,7 @@ class RedisDriver implements Driver {
      *
      * @return bool `true` if the identifier is in the expected format.
      */
-    protected function validate(string $id): bool {
+    public function validate(string $id): bool {
         return \preg_match(self::ID_REGEXP, $id);
     }
 
@@ -85,18 +81,9 @@ class RedisDriver implements Driver {
      */
     public function open(): Promise {
         return call(function () {
-            $token = \bin2hex(\random_bytes(16));
             $id = $this->generate();
-
-            try {
-                yield $this->mutex->lock($id, $token);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't acquire a lock", 0, $error);
-            }
-
-            $this->locks[$id] = $token;
-
-            return $this->read($id);
+            yield $this->lock($id);
+            return $id;
         });
     }
 
@@ -125,25 +112,25 @@ class RedisDriver implements Driver {
                 }
 
                 return $this->unlock($id);
-            } else {
-                $data = \json_encode([$ttl, $data]);
-                $flags = 0;
-
-                if (\strlen($data) > self::COMPRESSION_THRESHOLD) {
-                    $data = \gzdeflate($data, 1);
-                    $flags |= 0x01;
-                }
-
-                $data = \chr($flags & 0xff) . $data;
-
-                try {
-                    yield $this->client->set("sess:" . $id, $data, $ttl === -1 ? self::DEFAULT_TTL : $ttl);
-                } catch (\Throwable $error) {
-                    throw new SessionException("Couldn't persist session data", 0, $error);
-                }
-
-                return $this->unlock($id);
             }
+
+            $data = \json_encode([$ttl, $data]);
+            $flags = 0;
+
+            if (\strlen($data) > self::COMPRESSION_THRESHOLD) {
+                $data = \gzdeflate($data, 1);
+                $flags |= 0x01;
+            }
+
+            $data = \chr($flags & 0xff) . $data;
+
+            try {
+                yield $this->client->set("sess:" . $id, $data, $ttl === -1 ? self::DEFAULT_TTL : $ttl);
+            } catch (\Throwable $error) {
+                throw new SessionException("Couldn't persist session data", 0, $error);
+            }
+
+            return $this->unlock($id);
         });
     }
 
@@ -162,16 +149,13 @@ class RedisDriver implements Driver {
         }
 
         return call(function () use ($oldId) {
-            $token = \bin2hex(\random_bytes(16));
             $newId = $this->generate();
 
             try {
-                yield $this->mutex->lock($newId, $token);
+                yield $this->lock($newId);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't acquire lock for new session ID", 0, $error);
             }
-
-            $this->locks[$newId] = $token;
 
             yield $this->destroy($oldId);
 
@@ -197,7 +181,7 @@ class RedisDriver implements Driver {
      *
      * @param string $id Session ID.
      *
-     * @return Promise Resolves to an instance of Session.
+     * @return Promise Resolves to an array of session data.
      */
     public function read(string $id): Promise {
         if (!$this->validate($id)) {
@@ -213,7 +197,7 @@ class RedisDriver implements Driver {
             }
 
             if (!$result) {
-                return new Session($this, $id, $this->ttl);
+                return [];
             }
 
             $firstByte = \ord($result[0]);
@@ -231,7 +215,29 @@ class RedisDriver implements Driver {
                 throw new SessionException("couldn't set expiry", 0, $error);
             }
 
-            return new Session($this, $id, $ttl, $data);
+            return $data;
+        });
+    }
+
+    public function lock(string $id): Promise {
+        if (!$this->validate($id)) {
+            throw new \Error("Invalid identifier");
+        }
+
+        if (isset($this->locks[$id])) {
+            return new Success;
+        }
+
+        $token = \bin2hex(\random_bytes(16));
+
+        return call(function () use ($id, $token) {
+            try {
+                yield $this->mutex->lock($id, $token);
+            } catch (\Throwable $error) {
+                throw new SessionException("Couldn't acquire a lock", 0, $error);
+            }
+
+            $this->locks[$id] = $token;
         });
     }
 

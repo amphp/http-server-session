@@ -6,31 +6,33 @@ use function Amp\call;
 use Amp\Promise;
 
 class Session {
-    const STATUS_LOCKED = 0;
-    const STATUS_UNLOCKED = 1;
-    const STATUS_DESTROYED = 2;
+    const STATUS_READ = 1;
+    const STATUS_LOCKED = 2;
+    const STATUS_DESTROYED = 4;
 
-    const DEFAULT_TTL = 3600;
+    const DEFAULT_TTL = -1;
 
     /** @var \Aerys\Session\Driver */
     private $driver;
 
-    /** @var string */
+    /** @var string|null */
     private $id;
 
     /** @var string[] */
-    private $data;
+    private $data = [];
 
     /** @var int */
     private $ttl = self::DEFAULT_TTL;
 
     /** @var int */
-    private $status = self::STATUS_LOCKED;
+    private $status = 0;
 
-    public function __construct(Driver $driver, string $id, int $ttl, array $data = []) {
+    /** @var \Amp\Promise|null */
+    private $pending;
+
+    public function __construct(Driver $driver, string $id = null, int $ttl = self::DEFAULT_TTL) {
         $this->driver = $driver;
         $this->id = $id;
-        $this->data = $data;
         $this->ttl = $ttl;
     }
 
@@ -55,18 +57,22 @@ class Session {
         $this->ttl = $ttl;
     }
 
-    /**
-     * @return bool `true` if the session has been unlocked.
-     */
-    public function isDestroyed(): bool {
-        return $this->status & self::STATUS_DESTROYED;
+    public function isOpen(): bool {
+        return $this->status & self::STATUS_READ;
     }
 
     /**
      * @return bool `true` if the session has been unlocked.
      */
-    public function isUnlocked(): bool {
-        return $this->status & self::STATUS_UNLOCKED;
+    public function isLocked(): bool {
+        return $this->status & self::STATUS_LOCKED;
+    }
+
+    /**
+     * @return bool `true` if the session has been destroyed.
+     */
+    public function isDestroyed(): bool {
+        return $this->status & self::STATUS_DESTROYED;
     }
 
     /**
@@ -75,25 +81,83 @@ class Session {
      * @return Promise Resolving with the new session identifier.
      */
     public function regenerate(): Promise {
-        return call(function () {
-            return $this->id = yield $this->driver->regenerate($this->id);
+        return $this->pending = call(function () {
+            if ($this->pending) {
+                yield $this->pending;
+            }
+
+            if ($this->id === null) {
+                $this->id = yield $this->driver->open();
+            } else {
+                $this->id = yield $this->driver->regenerate($this->id);
+            }
+
+            $this->status |= self::STATUS_LOCKED;
+
+            return $this->id;
         });
     }
 
-    /**
-     * @return string[] All data currently stored in the session.
-     */
-    public function getData(): array {
-        return $this->data;
+    public function read(): Promise {
+        return $this->pending = call(function () {
+            if ($this->pending) {
+                yield $this->pending;
+            }
+
+            if ($this->status & self::STATUS_READ) {
+                return $this->data;
+            }
+
+            if ($this->id === null) {
+                $this->id = yield $this->driver->open();
+            } else {
+                $this->data = yield $this->driver->read($this->id);
+            }
+
+            $this->status |= self::STATUS_READ;
+            return $this->data;
+        });
+    }
+
+    public function lock(): Promise {
+        return $this->pending = call(function () {
+            if ($this->pending) {
+                yield $this->pending;
+            }
+
+            if ($this->status & self::STATUS_LOCKED) {
+                return $this->data;
+            }
+
+            if ($this->id === null) {
+                $this->id = yield $this->driver->open();
+            } else {
+                if (!($this->status & self::STATUS_READ)) {
+                    $this->data = yield $this->driver->read($this->id);
+                }
+
+                yield $this->driver->lock($this->id);
+            }
+
+            $this->status |= self::STATUS_READ | self::STATUS_LOCKED;
+            return $this->data;
+        });
     }
 
     public function save(): Promise {
-        if ($this->status & self::STATUS_UNLOCKED) {
-            throw new \Error("Cannot save an unlocked session");
-        }
+        return $this->pending = call(function () {
+            if ($this->pending) {
+                yield $this->pending;
+            }
 
-        $this->status |= self::STATUS_UNLOCKED;
-        return $this->driver->save($this->id, $this->data, $this->ttl);
+            if (!($this->status & self::STATUS_LOCKED)) {
+                throw new \Error("Cannot save an unlocked session");
+            }
+
+            yield $this->driver->save($this->id, $this->data, $this->ttl);
+
+            $this->status &= ~self::STATUS_LOCKED;
+        });
     }
 
     /**
@@ -102,8 +166,8 @@ class Session {
      * @return Promise Resolving after success.
      */
     public function destroy(): Promise {
-        $this->status |= self::STATUS_DESTROYED | self::STATUS_UNLOCKED;
-        return $this->driver->destroy($this->id);
+        $this->status = self::STATUS_DESTROYED;
+        return $this->pending = $this->driver->destroy($this->id);
     }
 
     /**
@@ -112,16 +176,36 @@ class Session {
      * @return \Amp\Promise
      */
     public function unlock(): Promise {
-        $this->status |= self::STATUS_UNLOCKED;
-        return $this->driver->unlock($this->id);
+        return $this->pending = call(function () {
+            if ($this->pending) {
+                yield $this->pending;
+            }
+
+            if (!($this->status & self::STATUS_LOCKED)) {
+                return;
+            }
+
+            yield $this->driver->unlock($this->id);
+
+            $this->status &= ~self::STATUS_LOCKED;
+
+            $this->data = $this->driver->read($this->id);
+        });
+
     }
 
     /**
      * @param string $key
      *
      * @return bool
+     *
+     * @throws \Error If the session has not been read.
      */
     public function has(string $key): bool {
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("Session must be read with read() or locked with lock() before calling get()");
+        }
+
         return \array_key_exists($key, $this->data);
     }
 
@@ -129,23 +213,41 @@ class Session {
      * @param string $key
      *
      * @return string|null
+     *
+     * @throws \Error If the session has not been read.
      */
     public function get(string $key) {
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("Session must be read with read() or locked with lock() before calling get()");
+        }
+
         return $this->data[$key] ?? null;
     }
 
     /**
      * @param string $key
      * @param string $value
+     *
+     * @throws \Error If the session has not been locked or has been unlocked.
      */
     public function set(string $key, string $value) {
+        if (!($this->status & self::STATUS_LOCKED)) {
+            throw new \Error("Session must be locked with lock() before calling set()");
+        }
+
         $this->data[$key] = $value;
     }
 
     /**
      * @param string $key
+     *
+     * @throws \Error If the session has not been locked or has been unlocked.
      */
     public function unset(string $key) {
+        if (!($this->status & self::STATUS_LOCKED)) {
+            throw new \Error("Session must be locked with lock() before calling unset()");
+        }
+
         unset($this->data[$key]);
     }
 }

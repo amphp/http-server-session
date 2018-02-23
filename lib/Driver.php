@@ -10,9 +10,18 @@ use Amp\Promise;
  */
 interface Driver {
     /**
+     * Determines if the given could have been produced by the driver.
+     *
+     * @param string $id
+     *
+     * @return bool
+     */
+    public function validate(string $id): bool;
+
+    /**
      * Creates a new locked session instance.
      *
-     * @return Promise resolving to an array with current session data.
+     * @return Promise resolving to the new session ID.
      */
     public function open(): Promise;
 
@@ -53,6 +62,15 @@ interface Driver {
      * @return \Amp\Promise
      */
     public function destroy(string $id): Promise;
+
+    /**
+     * Locks the session for writing.
+     *
+     * @param string $id The session identifier.
+     *
+     * @return Promise Resolving to an array with current session data.
+     */
+    public function lock(string $id): Promise;
 
     /**
      * Unlocks the session, reloads data without saving.

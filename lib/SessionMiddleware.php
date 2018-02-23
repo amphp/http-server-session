@@ -49,15 +49,13 @@ class SessionMiddleware implements Middleware {
         return call(function () use ($request, $responder) {
             $cookie = $request->getCookie($this->cookieName);
 
-            if ($cookie === null) {
-                $session = yield $this->driver->open();
-            } else {
-                $session = yield $this->driver->read($cookie->getValue());
+            $id = $cookie ? $cookie->getValue() : null;
+
+            if ($id !== null && !$this->driver->validate($id)) {
+                $id = null;
             }
 
-            if (!$session instanceof Session) {
-                throw new \TypeError(\get_class($this->driver) . " must produce an instance of " . Session::class);
-            }
+            $session = new Session($this->driver, $id);
 
             $request->setAttribute(Session::class, $session);
 
@@ -66,6 +64,35 @@ class SessionMiddleware implements Middleware {
             if (!$response instanceof Response) {
                 throw new \TypeError("Responder must resolve to an instance of " . Response::class);
             }
+
+            if ($session->isDestroyed()) {
+                $attributes = $this->cookieAttributes->withExpiry(
+                    new \DateTimeImmutable("@0", new \DateTimeZone("UTC"))
+                );
+
+                $response->setCookie(new ResponseCookie($this->cookieName, '', $attributes));
+
+                return $response;
+            }
+
+            if (!$session->isLocked()) {
+                return $response;
+            }
+
+            $id = $session->getId();
+            $ttl = $session->getTtl();
+
+            if ($cookie === null || $cookie->getValue() !== $id) {
+                if ($ttl === -1) {
+                    $attributes = $this->cookieAttributes->withoutMaxAge();
+                } else {
+                    $attributes = $this->cookieAttributes->withMaxAge($ttl);
+                }
+
+                $response->setCookie(new ResponseCookie($this->cookieName, $id, $attributes));
+            }
+
+            yield $session->save();
 
             $cacheControl = $response->getHeaderArray("cache-control");
 
@@ -86,34 +113,6 @@ class SessionMiddleware implements Middleware {
                 }
 
                 $response->setHeader("cache-control", $cacheControl);
-            }
-
-            if ($session->isDestroyed()) {
-                $attributes = $this->cookieAttributes->withExpiry(
-                    new \DateTimeImmutable("@0", new \DateTimeZone("UTC"))
-                );
-
-                $response->setCookie(new ResponseCookie($this->cookieName, '', $attributes));
-
-                return $response;
-            }
-
-            $id = $session->getId();
-            $data = $session->getData();
-            $ttl = $session->getTtl();
-
-            if ($cookie === null || $cookie->getValue() !== $id) {
-                if ($ttl === -1) {
-                    $attributes = $this->cookieAttributes->withoutMaxAge();
-                } else {
-                    $attributes = $this->cookieAttributes->withMaxAge($ttl);
-                }
-
-                $response->setCookie(new ResponseCookie($this->cookieName, $id, $attributes));
-            }
-
-            if (!$session->isUnlocked()) {
-                yield $this->driver->save($id, $data, $ttl);
             }
 
             return $response;
