@@ -75,24 +75,15 @@ class SessionMiddleware implements Middleware {
                 return $response;
             }
 
-            if (!$session->isLocked()) {
+            $id = $session->getId();
+
+            if ($id === null) {
                 return $response;
             }
 
-            $id = $session->getId();
-            $ttl = $session->getTtl();
-
             if ($cookie === null || $cookie->getValue() !== $id) {
-                if ($ttl === -1) {
-                    $attributes = $this->cookieAttributes->withoutMaxAge();
-                } else {
-                    $attributes = $this->cookieAttributes->withMaxAge($ttl);
-                }
-
-                $response->setCookie(new ResponseCookie($this->cookieName, $id, $attributes));
+                $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
             }
-
-            yield $session->save();
 
             $cacheControl = $response->getHeaderArray("cache-control");
 
