@@ -99,10 +99,6 @@ class RedisDriver implements Driver {
      * @throws \Error If the identifier given is invalid.
      */
     public function save(string $id, array $data, int $ttl): Promise {
-        if (!$this->validate($id)) {
-            throw new \Error("Invalid identifier");
-        }
-
         return call(function () use ($id, $data, $ttl) {
             if (empty($data)) {
                 try {
@@ -111,7 +107,8 @@ class RedisDriver implements Driver {
                     throw new SessionException("Couldn't delete session", 0, $error);
                 }
 
-                return $this->unlock($id);
+                yield $this->unlock($id);
+                return;
             }
 
             $data = \json_encode([$ttl, $data]);
@@ -130,7 +127,7 @@ class RedisDriver implements Driver {
                 throw new SessionException("Couldn't persist session data", 0, $error);
             }
 
-            return $this->unlock($id);
+            yield $this->unlock($id);
         });
     }
 
@@ -144,10 +141,6 @@ class RedisDriver implements Driver {
      * @throws \Error If the identifier given is invalid.
      */
     public function regenerate(string $oldId): Promise {
-        if (!$this->validate($oldId)) {
-            throw new \Error("Invalid identifier");
-        }
-
         return call(function () use ($oldId) {
             $newId = $this->generate();
 
@@ -184,11 +177,6 @@ class RedisDriver implements Driver {
      * @return Promise Resolves to an array of session data.
      */
     public function read(string $id): Promise {
-        if (!$this->validate($id)) {
-            // Invalid identifier given, open a new session instead.
-            return $this->open();
-        }
-
         return call(function () use ($id) {
             try {
                 $result = yield $this->client->get("sess:" . $id);
@@ -220,10 +208,6 @@ class RedisDriver implements Driver {
     }
 
     public function lock(string $id): Promise {
-        if (!$this->validate($id)) {
-            throw new \Error("Invalid identifier");
-        }
-
         if (isset($this->locks[$id])) {
             return new Success;
         }
@@ -251,10 +235,6 @@ class RedisDriver implements Driver {
      * @throws \Error If the identifier given is invalid.
      */
     public function unlock(string $id): Promise {
-        if (!$this->validate($id)) {
-            throw new \Error("Invalid identifier");
-        }
-
         $token = $this->locks[$id] ?? "";
 
         if (!$token) {

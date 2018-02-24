@@ -25,8 +25,7 @@ class SessionMiddleware implements Middleware {
 
     /**
      * @param \Aerys\Session\Driver $driver
-     * @param \Amp\Http\Cookie\CookieAttributes|null $cookieAttributes Attribute set for session cookies. Note that
-     *     the setting for max-age will be overwritten based on the session TTL.
+     * @param \Amp\Http\Cookie\CookieAttributes|null $cookieAttributes Attribute set for session cookies.
      * @param string $cookieName Name of session identifier cookie.
      */
     public function __construct(
@@ -49,13 +48,7 @@ class SessionMiddleware implements Middleware {
         return call(function () use ($request, $responder) {
             $cookie = $request->getCookie($this->cookieName);
 
-            $id = $cookie ? $cookie->getValue() : null;
-
-            if ($id !== null && !$this->driver->validate($id)) {
-                $id = null;
-            }
-
-            $session = new Session($this->driver, $id);
+            $session = new Session($this->driver, $cookie ? $cookie->getValue() : null);
 
             $request->setAttribute(Session::class, $session);
 
@@ -83,7 +76,7 @@ class SessionMiddleware implements Middleware {
 
             $id = $session->getId();
 
-            if ($id === null) {
+            if ($id === null || !$session->isRead()) {
                 return $response;
             }
 

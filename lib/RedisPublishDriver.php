@@ -14,6 +14,8 @@ class RedisPublishDriver extends RedisDriver {
             } catch (\Throwable $error) {
                 throw new SessionException("Failed to publish regeneration", 0, $error);
             }
+
+            return $newId;
         });
     }
 

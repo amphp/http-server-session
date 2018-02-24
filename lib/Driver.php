@@ -10,7 +10,7 @@ use Amp\Promise;
  */
 interface Driver {
     /**
-     * Determines if the given could have been produced by the driver.
+     * Determines if the given identifier could have been produced by the driver.
      *
      * @param string $id
      *
@@ -46,13 +46,13 @@ interface Driver {
     public function save(string $id, array $data, int $ttl): Promise;
 
     /**
-     * Regenerates a session identifier.
+     * Regenerates a session identifier, destroying the prior session and locking the new session.
      *
-     * @param string $oldId A old session identifier.
+     * @param string $id The current session identifier.
      *
      * @return Promise Resolved with the new identifier.
      */
-    public function regenerate(string $oldId): Promise;
+    public function regenerate(string $id): Promise;
 
     /**
      * Destroys a session with the given identifier.
@@ -68,7 +68,7 @@ interface Driver {
      *
      * @param string $id The session identifier.
      *
-     * @return Promise Resolving to an array with current session data.
+     * @return Promise Resolving once successfully locked.
      */
     public function lock(string $id): Promise;
 
@@ -77,7 +77,7 @@ interface Driver {
      *
      * @param string $id The session identifier.
      *
-     * @return Promise Resolving to an array with current session data.
+     * @return Promise Resolves once successfully unlocked.
      */
     public function unlock(string $id): Promise;
 }

@@ -2,11 +2,11 @@
 
 namespace Aerys\Session;
 
-use function Amp\call;
 use Amp\Promise;
 use Amp\Success;
+use function Amp\call;
 
-class Session {
+final class Session {
     const STATUS_READ = 1;
     const STATUS_LOCKED = 2;
     const STATUS_DESTROYED = 4;
@@ -31,6 +31,10 @@ class Session {
     public function __construct(Driver $driver, string $id = null) {
         $this->driver = $driver;
         $this->id = $id;
+
+        if ($this->id !== null && !$this->driver->validate($id)) {
+            $this->id = null;
+        }
     }
 
     /**
@@ -41,7 +45,14 @@ class Session {
     }
 
     /**
-     * @return bool `true` if the session has been unlocked.
+     * @return bool `true` if session data has been read.
+     */
+    public function isRead(): bool {
+        return $this->status & self::STATUS_READ;
+    }
+
+    /**
+     * @return bool `true` if the session has been locked.
      */
     public function isLocked(): bool {
         return $this->status & self::STATUS_LOCKED;
@@ -55,7 +66,7 @@ class Session {
     }
 
     /**
-     * Regenerates a session identifier.
+     * Regenerates a session identifier and locks the session.
      *
      * @return Promise Resolving with the new session identifier.
      */
@@ -77,6 +88,11 @@ class Session {
         });
     }
 
+    /**
+     * Reads the session data without locking the session.
+     *
+     * @return \Amp\Promise Resolved with the session data.
+     */
     public function read(): Promise {
         return $this->pending = call(function () {
             if ($this->pending) {
@@ -91,9 +107,7 @@ class Session {
                 return $this->data;
             }
 
-            if ($this->id === null) {
-                $this->id = yield $this->driver->open();
-            } else {
+            if ($this->id !== null) {
                 $this->data = yield $this->driver->read($this->id);
             }
 
@@ -102,6 +116,11 @@ class Session {
         });
     }
 
+    /**
+     * Locks the session for writing.
+     *
+     * @return \Amp\Promise Resolved with the session data.
+     */
     public function lock(): Promise {
         return $this->pending = call(function () {
             if ($this->pending) {
@@ -127,6 +146,15 @@ class Session {
         });
     }
 
+    /**
+     * Saves the given data in the session. The session must be locked with either lock() or regenerate() before
+     * calling this method.
+     *
+     * @param array $data Data to save in the session.
+     * @param int $ttl Time for the data to live in the driver storage. Note this is separate from the cookie expiry.
+     *
+     * @return \Amp\Promise
+     */
     public function save(array $data, int $ttl = self::DEFAULT_TTL): Promise {
         return $this->pending = call(function () use ($data, $ttl) {
             if ($this->pending) {
@@ -167,7 +195,7 @@ class Session {
     }
 
     /**
-     * Unlocks the session and discards any changes made to the session instance.
+     * Unlocks the session.
      *
      * @return \Amp\Promise
      */
