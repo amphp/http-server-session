@@ -59,7 +59,13 @@ class SessionMiddleware implements Middleware {
 
             $request->setAttribute(Session::class, $session);
 
-            $response = yield $responder->respond($request);
+            try {
+                $response = yield $responder->respond($request);
+            } finally {
+                if ($session->isLocked()) {
+                    $session->unlock();
+                }
+            }
 
             if (!$response instanceof Response) {
                 throw new \TypeError("Responder must resolve to an instance of " . Response::class);
