@@ -38,12 +38,12 @@ interface Driver {
      * Saves and unlocks a session.
      *
      * @param string $id The session identifier.
-     * @param array  $data Data to store, an empty array is equivalent to destruction of the session.
+     * @param mixed  $data Data to store, null is equivalent to destruction of the session.
      * @param int    $ttl Time until session expiration, always > 0.
      *
      * @return Promise Resolving after success.
      */
-    public function save(string $id, array $data, int $ttl): Promise;
+    public function save(string $id, $data, int $ttl): Promise;
 
     /**
      * Regenerates a session identifier, destroying the prior session and locking the new session.

@@ -19,9 +19,6 @@ final class Session {
     /** @var string|null */
     private $id;
 
-    /** @var string[] */
-    private $data = [];
-
     /** @var int */
     private $status = 0;
 
@@ -103,16 +100,12 @@ final class Session {
                 throw new \Error("The session was destroyed");
             }
 
-            if ($this->status & self::STATUS_READ) {
-                return $this->data;
-            }
-
             if ($this->id !== null) {
-                $this->data = yield $this->driver->read($this->id);
+                $data = yield $this->driver->read($this->id);
             }
 
             $this->status |= self::STATUS_READ;
-            return $this->data;
+            return $data ?? null;
         });
     }
 
@@ -134,15 +127,12 @@ final class Session {
             if ($this->id === null) {
                 $this->id = yield $this->driver->open();
             } else {
-                if (!($this->status & self::STATUS_READ)) {
-                    $this->data = yield $this->driver->read($this->id);
-                }
-
+                $data = yield $this->driver->read($this->id);
                 yield $this->driver->lock($this->id);
             }
 
             $this->status |= self::STATUS_READ | self::STATUS_LOCKED;
-            return $this->data;
+            return $data ?? null;
         });
     }
 
@@ -150,12 +140,12 @@ final class Session {
      * Saves the given data in the session. The session must be locked with either lock() or regenerate() before
      * calling this method.
      *
-     * @param array $data Data to save in the session.
+     * @param mixed $data Data to save in the session. Must be serializable.
      * @param int $ttl Time for the data to live in the driver storage. Note this is separate from the cookie expiry.
      *
      * @return \Amp\Promise
      */
-    public function save(array $data, int $ttl = self::DEFAULT_TTL): Promise {
+    public function save($data, int $ttl = self::DEFAULT_TTL): Promise {
         return $this->pending = call(function () use ($data, $ttl) {
             if ($this->pending) {
                 yield $this->pending;
@@ -168,7 +158,6 @@ final class Session {
             yield $this->driver->save($this->id, $data, $ttl);
 
             $this->status &= ~self::STATUS_LOCKED;
-            $this->data = $data;
         });
     }
 
@@ -212,8 +201,6 @@ final class Session {
             yield $this->driver->unlock($this->id);
 
             $this->status &= ~self::STATUS_LOCKED;
-            return $this->data;
         });
-
     }
 }
