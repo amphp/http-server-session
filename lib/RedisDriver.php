@@ -38,11 +38,15 @@ class RedisDriver implements Driver {
         $this->client = $client;
         $this->mutex = $mutex;
 
-        $this->repeatTimer = Loop::repeat($this->mutex->getTTL() / 2, function () {
-            foreach ($this->locks as $id => $token) {
-                $this->mutex->renew($id, $token);
+        $locks = &$this->locks;
+
+        $this->repeatTimer = Loop::repeat($this->mutex->getTTL() / 2, static function () use (&$locks, $mutex) {
+            foreach ($locks as $id => $token) {
+                $mutex->renew($id, $token);
             }
         });
+
+        Loop::unreference($this->repeatTimer);
     }
 
     public function __destruct() {
