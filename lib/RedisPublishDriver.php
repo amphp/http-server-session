@@ -19,12 +19,12 @@ class RedisPublishDriver extends RedisDriver {
         });
     }
 
-    public function save(string $id, $data, int $ttl): Promise {
+    public function save(string $id, array $data, int $ttl): Promise {
         return call(function () use ($id, $data, $ttl) {
             try {
                 yield parent::save($id, $data, $ttl);
 
-                $data = \addslashes(\serialize($data));
+                $data = \json_encode($data);
                 yield $this->getClient()->publish("sess:update", "{$id} {$data}");
             } catch (\Throwable $error) {
                 throw new SessionException("Failed to publish update", 0, $error);

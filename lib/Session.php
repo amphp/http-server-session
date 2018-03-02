@@ -3,7 +3,6 @@
 namespace Aerys\Session;
 
 use Amp\Promise;
-use Amp\Success;
 use function Amp\call;
 
 final class Session {
@@ -19,11 +18,17 @@ final class Session {
     /** @var string|null */
     private $id;
 
+    /** @var string[] Session data. */
+    private $data = [];
+
     /** @var int */
     private $status = 0;
 
     /** @var \Amp\Promise|null */
     private $pending;
+
+    /** @var int */
+    private $openCount = 0;
 
     public function __construct(Driver $driver, string $id = null) {
         $this->driver = $driver;
@@ -57,9 +62,15 @@ final class Session {
 
     /**
      * @return bool `true` if the session has been destroyed.
+     *
+     * @throws \Error If the session has not been read.
      */
-    public function isDestroyed(): bool {
-        return $this->status & self::STATUS_DESTROYED;
+    public function isEmpty(): bool {
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("The session has not been read");
+        }
+
+        return $this->status & self::STATUS_READ && empty($this->data);
     }
 
     /**
@@ -71,6 +82,10 @@ final class Session {
         return $this->pending = call(function () {
             if ($this->pending) {
                 yield $this->pending;
+            }
+
+            if (!($this->status & self::STATUS_LOCKED)) {
+                throw new \Error("Cannot save an unlocked session");
             }
 
             if ($this->id === null) {
@@ -86,7 +101,7 @@ final class Session {
     }
 
     /**
-     * Reads the session data without locking the session.
+     * Reads the session data without opening (locking) the session.
      *
      * @return \Amp\Promise Resolved with the session data.
      */
@@ -101,38 +116,37 @@ final class Session {
             }
 
             if ($this->id !== null) {
-                $data = yield $this->driver->read($this->id);
+                $this->data = yield $this->driver->read($this->id);
             }
 
             $this->status |= self::STATUS_READ;
-            return $data ?? null;
         });
     }
 
     /**
-     * Locks the session for writing.
+     * Opens the session for writing.
      *
      * @return \Amp\Promise Resolved with the session data.
      */
-    public function lock(): Promise {
+    public function open(): Promise {
         return $this->pending = call(function () {
             if ($this->pending) {
                 yield $this->pending;
             }
 
-            if ($this->status & self::STATUS_DESTROYED) {
-                throw new \Error("The session was destroyed");
-            }
-
             if ($this->id === null) {
                 $this->id = yield $this->driver->open();
             } else {
-                $data = yield $this->driver->read($this->id);
+                if (!($this->status & self::STATUS_READ)) {
+                    $this->data = yield $this->driver->read($this->id);
+                }
+
                 yield $this->driver->lock($this->id);
             }
 
+            ++$this->openCount;
+
             $this->status |= self::STATUS_READ | self::STATUS_LOCKED;
-            return $data ?? null;
         });
     }
 
@@ -140,13 +154,12 @@ final class Session {
      * Saves the given data in the session. The session must be locked with either lock() or regenerate() before
      * calling this method.
      *
-     * @param mixed $data Data to save in the session. Must be serializable.
      * @param int $ttl Time for the data to live in the driver storage. Note this is separate from the cookie expiry.
      *
      * @return \Amp\Promise
      */
-    public function save($data, int $ttl = self::DEFAULT_TTL): Promise {
-        return $this->pending = call(function () use ($data, $ttl) {
+    public function save(int $ttl = self::DEFAULT_TTL): Promise {
+        return $this->pending = call(function () use ($ttl) {
             if ($this->pending) {
                 yield $this->pending;
             }
@@ -155,9 +168,12 @@ final class Session {
                 throw new \Error("Cannot save an unlocked session");
             }
 
-            yield $this->driver->save($this->id, $data, $ttl);
+            yield $this->driver->save($this->id, $this->data, $ttl);
 
-            $this->status &= ~self::STATUS_LOCKED;
+            if (--$this->openCount === 0) {
+                yield $this->driver->unlock($this->id);
+                $this->status &= ~self::STATUS_LOCKED;
+            }
         });
     }
 
@@ -165,22 +181,17 @@ final class Session {
      * Unlocks and destroys the session.
      *
      * @return Promise Resolving after success.
+     *
+     * @throws \Error If the session has not been opened for writing.
      */
     public function destroy(): Promise {
-        if ($this->status & self::STATUS_DESTROYED) {
-            return new Success;
+        if (!($this->status & self::STATUS_LOCKED)) {
+            throw new \Error("Cannot destroy an unlocked session");
         }
 
-        $this->status = self::STATUS_DESTROYED;
+        $this->data = [];
 
-        if ($this->id === null) {
-            return new Success;
-        }
-
-        $id = $this->id;
-        $this->id = null;
-
-        return $this->pending = $this->driver->destroy($id);
+        return $this->pending = $this->save(0);
     }
 
     /**
@@ -194,13 +205,69 @@ final class Session {
                 yield $this->pending;
             }
 
-            if ($this->status & self::STATUS_DESTROYED) {
-                throw new \Error("The session was destroyed");
+            if (--$this->openCount === 0) {
+                yield $this->driver->unlock($this->id);
+                $this->status &= ~self::STATUS_LOCKED;
             }
-
-            yield $this->driver->unlock($this->id);
-
-            $this->status &= ~self::STATUS_LOCKED;
         });
+    }
+
+    /**
+     * @param string $key
+     *
+     * @return bool
+     *
+     * @throws \Error If the session has not been read.
+     */
+    public function has(string $key): bool {
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("The session has not been read");
+        }
+
+        return \array_key_exists($key, $this->data);
+    }
+
+    /**
+     * @param string $key
+     *
+     * @return string|null
+     *
+     * @throws \Error If the session has not been read.
+     */
+    public function get(string $key) { /* : ?string */
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("The session has not been read");
+        }
+
+        return $this->data[$key] ?? null;
+    }
+
+    /**
+     * @param string $key
+     * @param string $data
+     *
+     * @return string
+     *
+     * @throws \Error If the session has not been opened for writing.
+     */
+    public function set(string $key, string $data) {
+        if (!($this->status & self::STATUS_LOCKED)) {
+            throw new \Error("The session has not been opened for writing");
+        }
+
+        return $this->data[$key] = $data;
+    }
+
+    /**
+     * @param string $key
+     *
+     * @throws \Error If the session has not been opened for writing.
+     */
+    public function unset(string $key) {
+        if (!($this->status & self::STATUS_LOCKED)) {
+            throw new \Error("The session has not been opened for writing");
+        }
+
+        unset($this->data[$key]);
     }
 }

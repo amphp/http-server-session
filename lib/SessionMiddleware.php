@@ -64,19 +64,19 @@ class SessionMiddleware implements Middleware {
                 throw new \TypeError("Responder must resolve to an instance of " . Response::class);
             }
 
-            if ($session->isDestroyed()) {
+            $id = $session->getId();
+
+            if ($id === null || !$session->isRead()) {
+                return $response;
+            }
+
+            if ($session->isEmpty()) {
                 $attributes = $this->cookieAttributes->withExpiry(
                     new \DateTimeImmutable("@0", new \DateTimeZone("UTC"))
                 );
 
                 $response->setCookie(new ResponseCookie($this->cookieName, '', $attributes));
 
-                return $response;
-            }
-
-            $id = $session->getId();
-
-            if ($id === null || !$session->isRead()) {
                 return $response;
             }
 

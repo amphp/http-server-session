@@ -102,7 +102,7 @@ class RedisDriver implements Driver {
      *
      * @throws \Error If the identifier given is invalid.
      */
-    public function save(string $id, $data, int $ttl): Promise {
+    public function save(string $id, array $data, int $ttl): Promise {
         return call(function () use ($id, $data, $ttl) {
             if (empty($data)) {
                 try {
@@ -116,7 +116,7 @@ class RedisDriver implements Driver {
             }
 
             try {
-                $data = \serialize([$ttl, $data]);
+                $data = \json_encode([$ttl, $data]);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize session data", 0, $error);
             }
@@ -135,8 +135,6 @@ class RedisDriver implements Driver {
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist session data", 0, $error);
             }
-
-            yield $this->unlock($id);
         });
     }
 
@@ -159,23 +157,10 @@ class RedisDriver implements Driver {
                 throw new SessionException("Couldn't acquire lock for new session ID", 0, $error);
             }
 
-            yield $this->destroy($oldId);
+            yield $this->save($oldId, [], 0); // Destroy old session.
 
             return $newId;
         });
-    }
-
-    /**
-     * Destroys the session with the given identifier.
-     *
-     * @param string $id
-     *
-     * @return \Amp\Promise
-     *
-     * @throws \Error If the identifier given is invalid.
-     */
-    public function destroy(string $id): Promise {
-        return $this->save($id, null, 0);
     }
 
     /**
@@ -204,7 +189,7 @@ class RedisDriver implements Driver {
                 $result = \gzinflate($result);
             }
 
-            list($ttl, $data) = \unserialize($result);
+            list($ttl, $data) = \json_decode($result, true);
 
             try {
                 yield $this->client->expire("sess:" . $id, $ttl === -1 ? self::DEFAULT_TTL : $ttl);

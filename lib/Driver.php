@@ -43,7 +43,7 @@ interface Driver {
      *
      * @return Promise Resolving after success.
      */
-    public function save(string $id, $data, int $ttl): Promise;
+    public function save(string $id, array $data, int $ttl): Promise;
 
     /**
      * Regenerates a session identifier, destroying the prior session and locking the new session.
@@ -55,16 +55,7 @@ interface Driver {
     public function regenerate(string $id): Promise;
 
     /**
-     * Destroys a session with the given identifier.
-     *
-     * @param string $id
-     *
-     * @return \Amp\Promise
-     */
-    public function destroy(string $id): Promise;
-
-    /**
-     * Locks the session for writing.
+     * Lock an existing session for writing.
      *
      * @param string $id The session identifier.
      *
