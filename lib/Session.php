@@ -84,15 +84,11 @@ final class Session {
                 yield $this->pending;
             }
 
-            if (!($this->status & self::STATUS_LOCKED)) {
+            if ($this->id === null || !($this->status & self::STATUS_LOCKED)) {
                 throw new \Error("Cannot save an unlocked session");
             }
 
-            if ($this->id === null) {
-                $this->id = yield $this->driver->open();
-            } else {
-                $this->id = yield $this->driver->regenerate($this->id);
-            }
+            $this->id = yield $this->driver->regenerate($this->id);
 
             $this->status = self::STATUS_READ | self::STATUS_LOCKED;
 
@@ -170,10 +166,12 @@ final class Session {
 
             yield $this->driver->save($this->id, $this->data, $ttl);
 
-            if (--$this->openCount === 0) {
+            if ($this->openCount === 1) {
                 yield $this->driver->unlock($this->id);
                 $this->status &= ~self::STATUS_LOCKED;
             }
+
+            --$this->openCount;
         });
     }
 
@@ -205,10 +203,16 @@ final class Session {
                 yield $this->pending;
             }
 
-            if (--$this->openCount === 0) {
+            if (!($this->status & self::STATUS_LOCKED)) {
+                return;
+            }
+
+            if ($this->openCount === 1) {
                 yield $this->driver->unlock($this->id);
                 $this->status &= ~self::STATUS_LOCKED;
             }
+
+            --$this->openCount;
         });
     }
 
@@ -269,5 +273,18 @@ final class Session {
         }
 
         unset($this->data[$key]);
+    }
+
+    /**
+     * @return string[]
+     *
+     * @throws \Error If the session has not been read.
+     */
+    public function getData(): array {
+        if (!($this->status & self::STATUS_READ)) {
+            throw new \Error("The session has not been read");
+        }
+
+        return $this->data;
     }
 }
