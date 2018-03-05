@@ -70,7 +70,7 @@ final class Session {
             throw new \Error("The session has not been read");
         }
 
-        return $this->status & self::STATUS_READ && empty($this->data);
+        return empty($this->data);
     }
 
     /**
@@ -234,11 +234,11 @@ final class Session {
     /**
      * @param string $key
      *
-     * @return string|null
+     * @return mixed
      *
      * @throws \Error If the session has not been read.
      */
-    public function get(string $key) { /* : ?string */
+    public function get(string $key) {
         if (!($this->status & self::STATUS_READ)) {
             throw new \Error("The session has not been read");
         }
@@ -248,13 +248,13 @@ final class Session {
 
     /**
      * @param string $key
-     * @param string $data
+     * @param mixed $data
      *
      * @return string
      *
      * @throws \Error If the session has not been opened for writing.
      */
-    public function set(string $key, string $data) {
+    public function set(string $key, $data) {
         if (!($this->status & self::STATUS_LOCKED)) {
             throw new \Error("The session has not been opened for writing");
         }

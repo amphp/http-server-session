@@ -24,7 +24,7 @@ class RedisPublishDriver extends RedisDriver {
             try {
                 yield parent::save($id, $data, $ttl);
 
-                $data = \json_encode($data);
+                $data = \serialize($data);
                 yield $this->getClient()->publish("sess:update", "{$id} {$data}");
             } catch (\Throwable $error) {
                 throw new SessionException("Failed to publish update", 0, $error);

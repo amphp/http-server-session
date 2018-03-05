@@ -116,7 +116,7 @@ class RedisDriver implements Driver {
             }
 
             try {
-                $data = \json_encode([$ttl, $data]);
+                $data = \serialize([$ttl, $data]);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize session data", 0, $error);
             }
@@ -189,7 +189,7 @@ class RedisDriver implements Driver {
                 $result = \gzinflate($result);
             }
 
-            list($ttl, $data) = \json_decode($result, true);
+            list($ttl, $data) = \unserialize($result);
 
             try {
                 yield $this->client->expire("sess:" . $id, $ttl === -1 ? self::DEFAULT_TTL : $ttl);
