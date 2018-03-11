@@ -14,7 +14,7 @@ use function Amp\Promise\wait;
 abstract class DriverTest extends TestCase {
     abstract protected function createDriver(): Server\Session\Driver;
 
-    protected function withRespondSession(
+    protected function respondWithSession(
         Server\Session\Driver $driver,
         callable $responder,
         string $sessionId = null
@@ -36,7 +36,7 @@ abstract class DriverTest extends TestCase {
     }
 
     public function testNoCookieWithoutSessionData() {
-        $response = $this->withRespondSession($this->createDriver(), function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             yield $session->save();
@@ -48,7 +48,7 @@ abstract class DriverTest extends TestCase {
     }
 
     public function testCookieGetsCreated() {
-        $response = $this->withRespondSession($this->createDriver(), function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
@@ -63,7 +63,7 @@ abstract class DriverTest extends TestCase {
     public function testPersistsData() {
         $driver = $this->createDriver();
 
-        $response = $this->withRespondSession($driver, function (Server\Request $request) {
+        $response = $this->respondWithSession($driver, function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
@@ -75,7 +75,7 @@ abstract class DriverTest extends TestCase {
         $sessionCookie = ResponseCookie::fromHeader($response->getHeader("set-cookie"));
         $this->assertNotNull($sessionCookie);
 
-        $response = $this->withRespondSession($driver, function (Server\Request $request) {
+        $response = $this->respondWithSession($driver, function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->read();
 
