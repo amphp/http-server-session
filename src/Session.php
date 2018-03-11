@@ -1,6 +1,6 @@
 <?php
 
-namespace Aerys\Session;
+namespace Amp\Http\Server\Session;
 
 use Amp\Promise;
 use function Amp\call;
@@ -12,7 +12,7 @@ final class Session {
 
     const DEFAULT_TTL = -1;
 
-    /** @var \Aerys\Session\Driver */
+    /** @var \Amp\Http\Server\Session\Driver */
     private $driver;
 
     /** @var string|null */
@@ -99,7 +99,7 @@ final class Session {
     /**
      * Reads the session data without opening (locking) the session.
      *
-     * @return \Amp\Promise Resolved with the session data.
+     * @return \Amp\Promise Resolved with the session.
      */
     public function read(): Promise {
         return $this->pending = call(function () {
@@ -116,13 +116,15 @@ final class Session {
             }
 
             $this->status |= self::STATUS_READ;
+
+            return $this;
         });
     }
 
     /**
      * Opens the session for writing.
      *
-     * @return \Amp\Promise Resolved with the session data.
+     * @return \Amp\Promise Resolved with the session.
      */
     public function open(): Promise {
         return $this->pending = call(function () {
@@ -143,6 +145,8 @@ final class Session {
             ++$this->openCount;
 
             $this->status |= self::STATUS_READ | self::STATUS_LOCKED;
+
+            return $this;
         });
     }
 
@@ -164,11 +168,19 @@ final class Session {
                 throw new \Error("Cannot save an unlocked session");
             }
 
-            yield $this->driver->save($this->id, $this->data, $ttl);
+            if ($this->data === []) {
+                yield $this->driver->save($this->id, [], 0);
+            } else {
+                yield $this->driver->save($this->id, $this->data, $ttl);
+            }
 
             if ($this->openCount === 1) {
                 yield $this->driver->unlock($this->id);
                 $this->status &= ~self::STATUS_LOCKED;
+
+                if ($this->data === []) {
+                    $this->id = null;
+                }
             }
 
             --$this->openCount;
@@ -250,8 +262,6 @@ final class Session {
      * @param string $key
      * @param mixed $data
      *
-     * @return string
-     *
      * @throws \Error If the session has not been opened for writing.
      */
     public function set(string $key, $data) {
@@ -259,7 +269,7 @@ final class Session {
             throw new \Error("The session has not been opened for writing");
         }
 
-        return $this->data[$key] = $data;
+        $this->data[$key] = $data;
     }
 
     /**

@@ -1,11 +1,11 @@
 <?php
 
-namespace Aerys\Session;
+namespace Amp\Http\Server\Session;
 
-use Aerys\Middleware;
-use Aerys\Request;
-use Aerys\Responder;
-use Aerys\Response;
+use Amp\Http\Server\Middleware;
+use Amp\Http\Server\Request;
+use Amp\Http\Server\Responder;
+use Amp\Http\Server\Response;
 use Amp\Http\Cookie\CookieAttributes;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Promise;
@@ -14,7 +14,7 @@ use function Amp\call;
 class SessionMiddleware implements Middleware {
     const DEFAULT_COOKIE_NAME = "SESSION_ID";
 
-    /** @var \Aerys\Session\Driver */
+    /** @var \Amp\Http\Server\Session\Driver */
     private $driver;
 
     /** @var string */
@@ -24,7 +24,7 @@ class SessionMiddleware implements Middleware {
     private $cookieAttributes;
 
     /**
-     * @param \Aerys\Session\Driver $driver
+     * @param \Amp\Http\Server\Session\Driver $driver
      * @param \Amp\Http\Cookie\CookieAttributes|null $cookieAttributes Attribute set for session cookies.
      * @param string $cookieName Name of session identifier cookie.
      */
@@ -42,13 +42,14 @@ class SessionMiddleware implements Middleware {
      * @param Request $request
      * @param Responder $responder Request responder.
      *
-     * @return Promise<\Aerys\Response>
+     * @return Promise<\Amp\Http\Server\Response>
      */
     public function process(Request $request, Responder $responder): Promise {
         return call(function () use ($request, $responder) {
             $cookie = $request->getCookie($this->cookieName);
 
-            $session = new Session($this->driver, $cookie ? $cookie->getValue() : null);
+            $originalId = $cookie ? $cookie->getValue() : null;
+            $session = new Session($this->driver, $originalId);
 
             $request->setAttribute(Session::class, $session);
 

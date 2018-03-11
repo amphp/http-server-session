@@ -1,12 +1,12 @@
 <?php
 
-namespace Aerys\Session;
+namespace Amp\Http\Server\Session;
 
 use Amp\Promise;
 
 /**
- * When an operation fails, the driver must throw an Aerys\Session\Exception and try to clean up any locks regarding
- * that $id.
+ * When an operation fails, the driver must throw an Amp\Http\Server\Session\Exception and try to clean up any locks
+ * regarding that $id.
  */
 interface Driver {
     /**

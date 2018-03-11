@@ -1,7 +1,7 @@
 {
-    "name": "amphp/aerys-session",
-    "homepage": "https://github.com/amphp/aerys-session",
-    "description": "Session management for Aerys.",
+    "name": "amphp/http-server-session",
+    "homepage": "https://github.com/amphp/http-server-session",
+    "description": "Session management for Amp's HTTP server.",
     "license": "MIT",
     "authors": [
         {
@@ -17,15 +17,20 @@
             "email": "me@kelunik.com"
         }
     ],
+    "autoload": {
+        "psr-4": {
+            "Amp\\Http\\Server\\Session\\": "src"
+        }
+    },
     "require": {
         "amphp/amp": "^2",
-        "amphp/aerys": "0.8.x-dev as 0.8",
+        "amphp/http-server": "dev-master as 0.8.0",
         "amphp/redis": "^0.3.3",
         "kelunik/redis-mutex": "^0.2"
     },
-    "autoload": {
-        "psr-4": {
-            "Aerys\\Session\\": "lib"
-        }
+    "require-dev": {
+        "amphp/phpunit-util": "^1",
+        "phpunit/phpunit": "^6",
+        "amphp/http": "^1.0"
     }
 }

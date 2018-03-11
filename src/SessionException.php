@@ -1,6 +1,6 @@
 <?php
 
-namespace Aerys\Session;
+namespace Amp\Http\Server\Session;
 
 class SessionException extends \Exception {
 }
