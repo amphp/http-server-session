@@ -2,6 +2,9 @@ sudo: required
 
 language: php
 
+services:
+  - redis-server
+
 php:
   - 7.0
   - 7.1
@@ -13,15 +16,15 @@ matrix:
     - php: nightly
   fast_finish: true
 
-env:
-  - AMP_DEBUG=true
-  - AMP_HTTP_SERVER_SESSION_REDIS_TESTS=true
-
 install:
   - composer update -n --prefer-dist
 
   - wget https://github.com/php-coveralls/php-coveralls/releases/download/v1.0.2/coveralls.phar
   - chmod +x coveralls.phar
+
+before_script:
+  - export AMP_DEBUG=true
+  - export AMP_HTTP_SERVER_SESSION_REDIS_TESTS=true
 
 script:
   - vendor/bin/phpunit --coverage-text --coverage-clover build/logs/clover.xml
