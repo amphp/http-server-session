@@ -2,12 +2,12 @@
 
 namespace Amp\Http\Server\Session;
 
+use Amp\Http\Cookie\CookieAttributes;
+use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server\Middleware;
 use Amp\Http\Server\Request;
 use Amp\Http\Server\Responder;
 use Amp\Http\Server\Response;
-use Amp\Http\Cookie\CookieAttributes;
-use Amp\Http\Cookie\ResponseCookie;
 use Amp\Promise;
 use function Amp\call;
 
