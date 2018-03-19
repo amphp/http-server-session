@@ -2,7 +2,7 @@
 
 namespace Amp\Http\Server\Session\Test;
 
-use Amp\ByteStream\Message;
+use Amp\ByteStream\Payload;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server;
 use Amp\Http\Server\Session\Session;
@@ -16,12 +16,12 @@ abstract class DriverTest extends TestCase {
 
     protected function respondWithSession(
         Server\Session\Driver $driver,
-        callable $responder,
+        callable $requestHandler,
         string $sessionId = null
     ): Server\Response {
-        return wait(call(function () use ($driver, $responder, $sessionId) {
-            $responder = Server\Middleware\stack(
-                new Server\CallableResponder($responder),
+        return wait(call(function () use ($driver, $requestHandler, $sessionId) {
+            $requestHandler = Server\Middleware\stack(
+                new Server\RequestHandler\CallableRequestHandler($requestHandler),
                 new Server\Session\SessionMiddleware($driver)
             );
 
@@ -31,7 +31,7 @@ abstract class DriverTest extends TestCase {
                 $request->setHeader('cookie', Server\Session\SessionMiddleware::DEFAULT_COOKIE_NAME . '=' . $sessionId);
             }
 
-            return $responder->respond($request);
+            return $requestHandler->handleRequest($request);
         }));
     }
 
@@ -82,6 +82,7 @@ abstract class DriverTest extends TestCase {
             return new Server\Response($session->get("foo"));
         }, $sessionCookie->getValue());
 
-        $this->assertSame("bar", wait(new Message($response->getBody())));
+        $payload = new Payload($response->getBody());
+        $this->assertSame("bar", wait($payload->buffer()));
     }
 }

@@ -6,7 +6,7 @@ use Amp\Http\Cookie\CookieAttributes;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server\Middleware;
 use Amp\Http\Server\Request;
-use Amp\Http\Server\Responder;
+use Amp\Http\Server\RequestHandler;
 use Amp\Http\Server\Response;
 use Amp\Promise;
 use function Amp\call;
@@ -40,11 +40,11 @@ class SessionMiddleware implements Middleware {
 
     /**
      * @param Request $request
-     * @param Responder $responder Request responder.
+     * @param RequestHandler $responder Request responder.
      *
      * @return Promise<\Amp\Http\Server\Response>
      */
-    public function process(Request $request, Responder $responder): Promise {
+    public function handleRequest(Request $request, RequestHandler $responder): Promise {
         return call(function () use ($request, $responder) {
             $cookie = $request->getCookie($this->cookieName);
 
@@ -54,7 +54,7 @@ class SessionMiddleware implements Middleware {
             $request->setAttribute(Session::class, $session);
 
             try {
-                $response = yield $responder->respond($request);
+                $response = yield $responder->handleRequest($request);
             } finally {
                 if ($session->isLocked()) {
                     $session->unlock();
@@ -62,7 +62,7 @@ class SessionMiddleware implements Middleware {
             }
 
             if (!$response instanceof Response) {
-                throw new \TypeError("Responder must resolve to an instance of " . Response::class);
+                throw new \TypeError("Request handler must resolve to an instance of " . Response::class);
             }
 
             $id = $session->getId();
