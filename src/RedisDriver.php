@@ -40,7 +40,7 @@ class RedisDriver implements Driver {
 
         $locks = &$this->locks;
 
-        $this->repeatTimer = Loop::repeat($this->mutex->getTTL() / 2, static function () use (&$locks, $mutex) {
+        $this->repeatTimer = Loop::repeat($this->mutex->getTtl() / 2, static function () use (&$locks, $mutex) {
             foreach ($locks as $id => $token) {
                 $mutex->renew($id, $token);
             }
@@ -216,6 +216,8 @@ class RedisDriver implements Driver {
             }
 
             $this->locks[$id] = $token;
+
+            return $this->read($id);
         });
     }
 

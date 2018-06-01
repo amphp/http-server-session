@@ -55,11 +55,11 @@ interface Driver {
     public function regenerate(string $id): Promise;
 
     /**
-     * Lock an existing session for writing.
+     * Lock an existing session for writing and return the current session data.
      *
      * @param string $id The session identifier.
      *
-     * @return Promise Resolving once successfully locked.
+     * @return Promise Resolving with the session data once successfully locked.
      */
     public function lock(string $id): Promise;
 

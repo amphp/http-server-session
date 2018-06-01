@@ -135,11 +135,7 @@ final class Session {
             if ($this->id === null) {
                 $this->id = yield $this->driver->open();
             } else {
-                if (!($this->status & self::STATUS_READ)) {
-                    $this->data = yield $this->driver->read($this->id);
-                }
-
-                yield $this->driver->lock($this->id);
+                $this->data = yield $this->driver->lock($this->id);
             }
 
             ++$this->openCount;
