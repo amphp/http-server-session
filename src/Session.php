@@ -116,8 +116,6 @@ final class Session {
             }
 
             $this->status |= self::STATUS_READ;
-
-            return $this;
         });
     }
 
@@ -141,8 +139,6 @@ final class Session {
             ++$this->openCount;
 
             $this->status |= self::STATUS_READ | self::STATUS_LOCKED;
-
-            return $this;
         });
     }
 
