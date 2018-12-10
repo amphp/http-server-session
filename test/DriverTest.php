@@ -11,7 +11,8 @@ use League\Uri\Http;
 use function Amp\call;
 use function Amp\Promise\wait;
 
-abstract class DriverTest extends TestCase {
+abstract class DriverTest extends TestCase
+{
     abstract protected function createDriver(): Server\Session\Driver;
 
     protected function respondWithSession(
@@ -25,7 +26,7 @@ abstract class DriverTest extends TestCase {
                 new Server\Session\SessionMiddleware($driver)
             );
 
-            $request = new Server\Request($this->createMock(Server\Client::class), "GET", Http::createFromString("/"));
+            $request = new Server\Request($this->createMock(Server\Driver\Client::class), "GET", Http::createFromString("/"));
 
             if ($sessionId !== null) {
                 $request->setHeader('cookie', Server\Session\SessionMiddleware::DEFAULT_COOKIE_NAME . '=' . $sessionId);
@@ -35,32 +36,35 @@ abstract class DriverTest extends TestCase {
         }));
     }
 
-    public function testNoCookieWithoutSessionData() {
+    public function testNoCookieWithoutSessionData()
+    {
         $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             yield $session->save();
 
-            return new Server\Response("hello world");
+            return new Server\Response(200, [], "hello world");
         });
 
         $this->assertNull($response->getHeader('set-cookie'));
     }
 
-    public function testCookieGetsCreated() {
+    public function testCookieGetsCreated()
+    {
         $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
             yield $session->save();
 
-            return new Server\Response("hello world");
+            return new Server\Response(200, [], "hello world");
         });
 
         $this->assertNotNull($response->getHeader('set-cookie'));
     }
 
-    public function testPersistsData() {
+    public function testPersistsData()
+    {
         $driver = $this->createDriver();
 
         $response = $this->respondWithSession($driver, function (Server\Request $request) {
@@ -69,7 +73,7 @@ abstract class DriverTest extends TestCase {
             $session->set("foo", "bar");
             yield $session->save();
 
-            return new Server\Response("hello world");
+            return new Server\Response(200, [], "hello world");
         });
 
         $sessionCookie = ResponseCookie::fromHeader($response->getHeader("set-cookie"));
@@ -79,7 +83,7 @@ abstract class DriverTest extends TestCase {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->read();
 
-            return new Server\Response($session->get("foo"));
+            return new Server\Response(200, [], $session->get("foo"));
         }, $sessionCookie->getValue());
 
         $payload = new Payload($response->getBody());

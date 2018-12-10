@@ -8,9 +8,10 @@ use Amp\Promise;
  * When an operation fails, the driver must throw an Amp\Http\Server\Session\Exception and try to clean up any locks
  * regarding that $id.
  */
-interface Driver {
+interface Driver
+{
     /**
-     * Determines if the given identifier could have been produced by the driver.
+     * Determines if the given identifier matches the format produced by the driver.
      *
      * @param string $id
      *
@@ -23,10 +24,10 @@ interface Driver {
      *
      * @return Promise resolving to the new session ID.
      */
-    public function open(): Promise;
+    public function create(): Promise;
 
     /**
-     * Reloads the session contents.
+     * Reads the session contents.
      *
      * @param string $id The session identifier.
      *
@@ -37,22 +38,13 @@ interface Driver {
     /**
      * Saves and unlocks a session.
      *
-     * @param string $id The session identifier.
-     * @param mixed  $data Data to store, null is equivalent to destruction of the session.
-     * @param int    $ttl Time until session expiration, always > 0.
+     * @param string   $id The session identifier.
+     * @param mixed    $data Data to store.
+     * @param int|null $ttl Time until session expiration or `null` for the driver's default TTL.
      *
      * @return Promise Resolving after success.
      */
-    public function save(string $id, array $data, int $ttl): Promise;
-
-    /**
-     * Regenerates a session identifier, destroying the prior session and locking the new session.
-     *
-     * @param string $id The current session identifier.
-     *
-     * @return Promise Resolved with the new identifier.
-     */
-    public function regenerate(string $id): Promise;
+    public function save(string $id, array $data, int $ttl = null): Promise;
 
     /**
      * Lock an existing session for writing and return the current session data.
@@ -64,7 +56,7 @@ interface Driver {
     public function lock(string $id): Promise;
 
     /**
-     * Unlocks the session, reloads data without saving.
+     * Unlocks the session.
      *
      * @param string $id The session identifier.
      *
