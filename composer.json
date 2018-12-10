@@ -24,19 +24,24 @@
     },
     "require": {
         "amphp/amp": "^2",
-        "amphp/http-server": "^0.8",
+        "amphp/http-server": "^1 || ^0.8",
         "amphp/redis": "^0.3.3",
-        "kelunik/redis-mutex": "^0.2"
+        "kelunik/redis-mutex": "^0.2",
+        "paragonie/constant_time_encoding": "^2.2"
     },
     "require-dev": {
         "amphp/phpunit-util": "^1",
         "phpunit/phpunit": "^6",
         "amphp/http": "^1.0",
-        "friendsofphp/php-cs-fixer": "^2.9"
+        "amphp/php-cs-fixer-config": "dev-master"
     },
     "config": {
         "platform": {
             "php": "7.0"
         }
+    },
+    "scripts": {
+        "test": "@php -dzend.assertions=1 -dassert.exception=1 ./vendor/bin/phpunit",
+        "code-style": "@php ./vendor/bin/php-cs-fixer fix"
     }
 }

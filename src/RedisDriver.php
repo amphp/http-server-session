@@ -7,20 +7,24 @@ use Amp\Promise;
 use Amp\Redis\Client;
 use Amp\Success;
 use Kelunik\RedisMutex\Mutex;
+use ParagonIE\ConstantTime\Base64UrlSafe;
 use function Amp\call;
 
-class RedisDriver implements Driver {
-    const ID_REGEXP = '/^[A-Za-z0-9+\/]{32}$/';
-    const ID_BYTES = 24; // divisible by three to not waste chars with "=" and simplify regexp.
+class RedisDriver implements Driver
+{
+    const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
+    const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
+
+    const FLAG_COMPRESSED = 1;
 
     const COMPRESSION_THRESHOLD = 256;
 
     const DEFAULT_TTL = 3600;
 
-    /** @var \Amp\Redis\Client */
+    /** @var Client */
     private $client;
 
-    /** @var \Kelunik\RedisMutex\Mutex */
+    /** @var Mutex */
     private $mutex;
 
     /** @var string[] */
@@ -29,14 +33,19 @@ class RedisDriver implements Driver {
     /** @var string Watcher ID for mutex renewals. */
     private $repeatTimer;
 
+    /** @var string */
+    private $keyPrefix;
+
     /**
-     * @param \Amp\Redis\Client $client
-     * @param \Kelunik\RedisMutex\Mutex $mutex
-     * @param int|null $ttl Use null for session-length cookies.
+     * @param Client $client
+     * @param Mutex  $mutex
+     * @param string $keyPrefix
      */
-    public function __construct(Client $client, Mutex $mutex) {
+    public function __construct(Client $client, Mutex $mutex, string $keyPrefix = 'sess:')
+    {
         $this->client = $client;
         $this->mutex = $mutex;
+        $this->keyPrefix = $keyPrefix;
 
         $locks = &$this->locks;
 
@@ -49,41 +58,39 @@ class RedisDriver implements Driver {
         Loop::unreference($this->repeatTimer);
     }
 
-    public function __destruct() {
+    public function __destruct()
+    {
         Loop::cancel($this->repeatTimer);
     }
 
+    final protected function getKeyPrefix(): string
+    {
+        return $this->keyPrefix;
+    }
+
     /**
-     * @return \Amp\Redis\Client Redis client being used by the driver.
+     * @return Client Redis client being used by the driver.
      */
-    protected function getClient(): Client {
+    final protected function getClient(): Client
+    {
         return $this->client;
     }
 
-    /**
-     * Generates a new random session identifier.
-     *
-     * @return string
-     */
-    protected function generate(): string {
-        return \base64_encode(\random_bytes(self::ID_BYTES));
+    /** @inheritdoc */
+    protected function generate(): string
+    {
+        return Base64UrlSafe::encode(\random_bytes(self::ID_BYTES));
     }
 
-    /**
-     * @param string $id
-     *
-     * @return bool `true` if the identifier is in the expected format.
-     */
-    public function validate(string $id): bool {
+    /** @inheritdoc */
+    public function validate(string $id): bool
+    {
         return \preg_match(self::ID_REGEXP, $id);
     }
 
-    /**
-     * Creates a lock and reads the current session data.
-     *
-     * @return Promise Resolving to an instance of Session.
-     */
-    public function open(): Promise {
+    /** @inheritdoc */
+    public function create(): Promise
+    {
         return call(function () {
             $id = $this->generate();
             yield $this->lock($id);
@@ -91,24 +98,15 @@ class RedisDriver implements Driver {
         });
     }
 
-    /**
-     * Saves and unlocks a session.
-     *
-     * @param string $id Session ID.
-     * @param mixed  $data To store (null equivalent to destruction of the session).
-     * @param int    $ttl Time until session expiration (always > 0).
-     *
-     * @return Promise Resolves with null on success.
-     *
-     * @throws \Error If the identifier given is invalid.
-     */
-    public function save(string $id, array $data, int $ttl): Promise {
+    /** @inheritdoc */
+    public function save(string $id, array $data, int $ttl = null): Promise
+    {
         return call(function () use ($id, $data, $ttl) {
-            if (empty($data)) {
+            if (empty($data) || $ttl < 0) {
                 try {
-                    yield $this->client->del("sess:" . $id);
+                    yield $this->client->del($this->keyPrefix . $id);
                 } catch (\Throwable $error) {
-                    throw new SessionException("Couldn't delete session", 0, $error);
+                    throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
                 }
 
                 yield $this->unlock($id);
@@ -118,101 +116,73 @@ class RedisDriver implements Driver {
             try {
                 $data = \serialize([$ttl, $data]);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't serialize session data", 0, $error);
+                throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
             }
 
             $flags = 0;
 
             if (\strlen($data) > self::COMPRESSION_THRESHOLD) {
                 $data = \gzdeflate($data, 1);
-                $flags |= 0x01;
+                $flags |= self::FLAG_COMPRESSED;
             }
 
             $data = \chr($flags & 0xff) . $data;
 
             try {
-                yield $this->client->set("sess:" . $id, $data, $ttl === -1 ? self::DEFAULT_TTL : $ttl);
+                yield $this->client->set($this->keyPrefix . $id, $data, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't persist session data", 0, $error);
+                throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
         });
     }
 
-    /**
-     * Regenerates a session ID.
-     *
-     * @param string $oldId Old session ID.
-     *
-     * @return Promise Resolves with the new session ID.
-     *
-     * @throws \Error If the identifier given is invalid.
-     */
-    public function regenerate(string $oldId): Promise {
-        return call(function () use ($oldId) {
-            $newId = $this->generate();
-
-            try {
-                yield $this->lock($newId);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't acquire lock for new session ID", 0, $error);
-            }
-
-            yield $this->save($oldId, [], 0); // Destroy old session.
-
-            return $newId;
-        });
-    }
-
-    /**
-     * Reloads the session contents.
-     *
-     * @param string $id Session ID.
-     *
-     * @return Promise Resolves to an array of session data.
-     */
-    public function read(string $id): Promise {
+    /** @inheritdoc */
+    public function read(string $id): Promise
+    {
         return call(function () use ($id) {
             try {
-                $result = yield $this->client->get("sess:" . $id);
+                $result = yield $this->client->get($this->keyPrefix . $id);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't read session data", 0, $error);
+                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
 
-            if (!$result) {
+            if ($result === null || $result === '') {
                 return null;
             }
 
             $firstByte = \ord($result[0]);
             $result = \substr($result, 1);
 
-            if ($firstByte & 0x01) {
+            if ($firstByte & self::FLAG_COMPRESSED) {
                 $result = \gzinflate($result);
             }
 
-            list($ttl, $data) = \unserialize($result);
+            list($ttl, $data) = \unserialize($result, ['allowed_classes' => true]);
 
             try {
-                yield $this->client->expire("sess:" . $id, $ttl === -1 ? self::DEFAULT_TTL : $ttl);
+                yield $this->client->expire($this->keyPrefix . $id, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
-                throw new SessionException("couldn't set expiry", 0, $error);
+                throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
             }
 
             return $data;
         });
     }
 
-    public function lock(string $id): Promise {
+    /** @inheritdoc */
+    public function lock(string $id): Promise
+    {
         if (isset($this->locks[$id])) {
             return new Success;
         }
 
-        $token = \bin2hex(\random_bytes(16));
+        $token = Base64UrlSafe::encode(\random_bytes(16));
 
         return call(function () use ($id, $token) {
             try {
                 yield $this->mutex->lock($id, $token);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't acquire a lock", 0, $error);
+                throw new SessionException("Couldn't acquire lock for session '${id}'", 0, $error);
             }
 
             $this->locks[$id] = $token;
@@ -221,19 +191,12 @@ class RedisDriver implements Driver {
         });
     }
 
-    /**
-     * Unlocks the session, reloads data without saving.
-     *
-     * @param string $id Session ID.
-     *
-     * @return Promise Resolves with null on success.
-     *
-     * @throws \Error If the identifier given is invalid.
-     */
-    public function unlock(string $id): Promise {
-        $token = $this->locks[$id] ?? "";
+    /** @inheritdoc */
+    public function unlock(string $id): Promise
+    {
+        $token = $this->locks[$id] ?? '';
 
-        if (!$token) {
+        if ($token === '') {
             return new Success;
         }
 
@@ -241,7 +204,7 @@ class RedisDriver implements Driver {
             try {
                 yield $this->mutex->unlock($id, $token);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't unlock session", 0, $error);
+                throw new SessionException("Couldn't unlock session '${id}'", 0, $error);
             }
 
             unset($this->locks[$id]);

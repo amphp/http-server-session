@@ -11,47 +11,55 @@ use Amp\Http\Server\Response;
 use Amp\Promise;
 use function Amp\call;
 
-class SessionMiddleware implements Middleware {
-    const DEFAULT_COOKIE_NAME = "SESSION_ID";
+class SessionMiddleware implements Middleware
+{
+    const DEFAULT_COOKIE_NAME = "session";
 
-    /** @var \Amp\Http\Server\Session\Driver */
+    /** @var Driver */
     private $driver;
 
     /** @var string */
     private $cookieName;
 
-    /** @var \Amp\Http\Cookie\CookieAttributes */
+    /** @var CookieAttributes */
     private $cookieAttributes;
 
+    /** @var string */
+    private $requestAttribute;
+
     /**
-     * @param \Amp\Http\Server\Session\Driver $driver
-     * @param \Amp\Http\Cookie\CookieAttributes|null $cookieAttributes Attribute set for session cookies.
-     * @param string $cookieName Name of session identifier cookie.
+     * @param Driver                $driver
+     * @param CookieAttributes|null $cookieAttributes Attribute set for session cookies.
+     * @param string                $cookieName Name of session identifier cookie.
+     * @param string                $requestAttribute Name of the request attribute being used to store the session.
      */
     public function __construct(
         Driver $driver,
         CookieAttributes $cookieAttributes = null,
-        string $cookieName = self::DEFAULT_COOKIE_NAME
+        string $cookieName = self::DEFAULT_COOKIE_NAME,
+        string $requestAttribute = Session::class
     ) {
         $this->driver = $driver;
         $this->cookieName = $cookieName;
         $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default();
+        $this->requestAttribute = $requestAttribute;
     }
 
     /**
-     * @param Request $request
+     * @param Request        $request
      * @param RequestHandler $responder Request responder.
      *
      * @return Promise<\Amp\Http\Server\Response>
      */
-    public function handleRequest(Request $request, RequestHandler $responder): Promise {
+    public function handleRequest(Request $request, RequestHandler $responder): Promise
+    {
         return call(function () use ($request, $responder) {
             $cookie = $request->getCookie($this->cookieName);
 
             $originalId = $cookie ? $cookie->getValue() : null;
             $session = new Session($this->driver, $originalId);
 
-            $request->setAttribute(Session::class, $session);
+            $request->setAttribute($this->requestAttribute, $session);
 
             try {
                 $response = yield $responder->handleRequest($request);
