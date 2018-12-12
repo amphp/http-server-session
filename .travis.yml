@@ -35,4 +35,5 @@ after_script:
 
 cache:
   directories:
+    - $HOME/.php-cs-fixer
     - $HOME/.composer/cache
