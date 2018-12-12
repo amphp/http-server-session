@@ -17,9 +17,6 @@ class RedisPublishSubscriber
     private $keyPrefix;
 
     /** @var callable[] */
-    private $regenerateHandlers = [];
-
-    /** @var callable[] */
     private $updateHandlers = [];
 
     /** @var callable|null */
@@ -41,10 +38,7 @@ class RedisPublishSubscriber
     {
         return call(function () {
             try {
-                yield [
-                    new Coroutine($this->handleRegenerateEvents()),
-                    new Coroutine($this->handleUpdateEvents()),
-                ];
+                yield new Coroutine($this->handleUpdateEvents());
 
                 if ($this->error) {
                     throw $this->error;
@@ -59,11 +53,6 @@ class RedisPublishSubscriber
         });
     }
 
-    public function addRegenerateHandler(callable $callback)
-    {
-        $this->regenerateHandlers[] = $callback;
-    }
-
     public function addUpdateHandler(callable $callback)
     {
         $this->updateHandlers[] = $callback;
@@ -72,27 +61,6 @@ class RedisPublishSubscriber
     public function setErrorHandler(callable $callback)
     {
         $this->errorHandler = $callback;
-    }
-
-    /** @throws */
-    private function handleRegenerateEvents(): \Generator
-    {
-        /** @var Subscription $subscription */
-        $subscription = yield $this->client->subscribe($this->keyPrefix . 'regenerate');
-        $this->subscriptions[] = $subscription;
-
-        while (yield $subscription->advance()) {
-            $update = $subscription->getCurrent();
-            list($oldId, $newId) = \explode(' ', $update);
-
-            foreach ($this->regenerateHandlers as $handler) {
-                call($handler, $oldId, $newId)->onResolve(function ($error) {
-                    if ($error) {
-                        $this->triggerErrorHandlers($error);
-                    }
-                });
-            }
-        }
     }
 
     /** @throws */
