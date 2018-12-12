@@ -11,7 +11,7 @@ use Amp\Http\Server\Response;
 use Amp\Promise;
 use function Amp\call;
 
-class SessionMiddleware implements Middleware
+final class SessionMiddleware implements Middleware
 {
     const DEFAULT_COOKIE_NAME = "session";
 
