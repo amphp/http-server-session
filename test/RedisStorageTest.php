@@ -8,7 +8,7 @@ use Kelunik\RedisMutex\Mutex;
 
 class RedisStorageTest extends StorageTest
 {
-    protected function createDriver(): Server\Session\Storage
+    protected function createStorage(): Server\Session\Storage
     {
         if (!\getenv('AMP_HTTP_SERVER_SESSION_REDIS_TESTS')) {
             // Prevent tests from polluting a local Redis instance accidentally...

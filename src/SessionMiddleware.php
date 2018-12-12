@@ -13,7 +13,7 @@ use function Amp\call;
 
 final class SessionMiddleware implements Middleware
 {
-    private const DEFAULT_COOKIE_NAME = 'session';
+    public const DEFAULT_COOKIE_NAME = 'session';
 
     /** @var Storage */
     private $storage;

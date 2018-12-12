@@ -22,6 +22,11 @@
             "Amp\\Http\\Server\\Session\\": "src"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Amp\\Http\\Server\\Session\\Test\\": "test"
+        }
+    },
     "require": {
         "php": ">=7.1.0",
         "amphp/amp": "^2",

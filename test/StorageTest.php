@@ -16,17 +16,17 @@ use function Amp\Promise\wait;
 
 abstract class StorageTest extends TestCase
 {
-    abstract protected function createDriver(): Server\Session\Storage;
+    abstract protected function createStorage(): Server\Session\Storage;
 
     protected function respondWithSession(
-        Server\Session\Storage $driver,
+        Server\Session\Storage $storage,
         callable $requestHandler,
         string $sessionId = null
     ): Server\Response {
-        return wait(call(function () use ($driver, $requestHandler, $sessionId) {
+        return wait(call(function () use ($storage, $requestHandler, $sessionId) {
             $requestHandler = Server\Middleware\stack(
                 new Server\RequestHandler\CallableRequestHandler($requestHandler),
-                new Server\Session\SessionMiddleware($driver)
+                new Server\Session\SessionMiddleware($storage)
             );
 
             $request = new Server\Request($this->createMock(Server\Driver\Client::class), "GET", Http::createFromString("/"));
@@ -39,9 +39,9 @@ abstract class StorageTest extends TestCase
         }));
     }
 
-    public function testNoCookieWithoutSessionData()
+    public function testNoCookieWithoutSessionData(): void
     {
-        $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             yield $session->save();
@@ -52,9 +52,9 @@ abstract class StorageTest extends TestCase
         $this->assertNull($response->getHeader('set-cookie'));
     }
 
-    public function testCookieGetsCreated()
+    public function testCookieGetsCreated(): void
     {
-        $response = $this->respondWithSession($this->createDriver(), function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
@@ -66,9 +66,9 @@ abstract class StorageTest extends TestCase
         $this->assertNotNull($response->getHeader('set-cookie'));
     }
 
-    public function testPersistsData()
+    public function testPersistsData(): void
     {
-        $driver = $this->createDriver();
+        $driver = $this->createStorage();
 
         $response = $this->respondWithSession($driver, function (Server\Request $request) {
             /** @var Session $session */
@@ -93,9 +93,9 @@ abstract class StorageTest extends TestCase
         $this->assertSame("bar", wait($payload->buffer()));
     }
 
-    public function testConcurrentLocking()
+    public function testConcurrentLocking(): void
     {
-        $driver = $this->createDriver();
+        $driver = $this->createStorage();
 
         wait($driver->lock('a'));
 
