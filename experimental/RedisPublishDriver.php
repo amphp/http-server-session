@@ -5,7 +5,7 @@ namespace Amp\Http\Server\Session;
 use Amp\Promise;
 use function Amp\call;
 
-class RedisPublishDriver extends RedisDriver
+class RedisPublishDriver extends RedisStorage
 {
     public function save(string $id, array $data, int $ttl = null): Promise
     {

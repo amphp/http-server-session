@@ -10,8 +10,8 @@ final class Session
     private const STATUS_READ = 1;
     private const STATUS_LOCKED = 2;
 
-    /** @var Driver */
-    private $driver;
+    /** @var Storage */
+    private $storage;
 
     /** @var string|null */
     private $id;
@@ -28,12 +28,12 @@ final class Session
     /** @var int */
     private $openCount = 0;
 
-    public function __construct(Driver $driver, ?string $id)
+    public function __construct(Storage $storage, ?string $id)
     {
-        $this->driver = $driver;
+        $this->storage = $storage;
         $this->id = $id;
 
-        if ($this->id !== null && !$this->driver->validate($id)) {
+        if ($this->id !== null && !$this->storage->validate($id)) {
             $this->id = null;
         }
     }
@@ -92,10 +92,10 @@ final class Session
                 throw new \Error('Cannot save an unlocked session');
             }
 
-            $newId = yield $this->driver->create();
+            $newId = yield $this->storage->create();
 
-            yield $this->driver->save($newId, $this->data);
-            yield $this->driver->save($this->id, []);
+            yield $this->storage->save($newId, $this->data);
+            yield $this->storage->save($this->id, []);
 
             $this->id = $newId;
             $this->status = self::STATUS_READ | self::STATUS_LOCKED;
@@ -117,7 +117,7 @@ final class Session
             }
 
             if ($this->id !== null) {
-                $this->data = yield $this->driver->read($this->id);
+                $this->data = yield $this->storage->read($this->id);
             }
 
             $this->status |= self::STATUS_READ;
@@ -139,9 +139,9 @@ final class Session
             }
 
             if ($this->id === null) {
-                $this->id = yield $this->driver->create();
+                $this->id = yield $this->storage->create();
             } else {
-                $this->data = yield $this->driver->lock($this->id);
+                $this->data = yield $this->storage->lock($this->id);
             }
 
             ++$this->openCount;
@@ -171,13 +171,13 @@ final class Session
             }
 
             if ($this->data === []) {
-                yield $this->driver->save($this->id, []);
+                yield $this->storage->save($this->id, []);
             } else {
-                yield $this->driver->save($this->id, $this->data);
+                yield $this->storage->save($this->id, $this->data);
             }
 
             if ($this->openCount === 1) {
-                yield $this->driver->unlock($this->id);
+                yield $this->storage->unlock($this->id);
                 $this->status &= ~self::STATUS_LOCKED;
 
                 if ($this->data === []) {
@@ -222,7 +222,7 @@ final class Session
             }
 
             if ($this->openCount === 1) {
-                yield $this->driver->unlock($this->id);
+                yield $this->storage->unlock($this->id);
                 $this->status &= ~self::STATUS_LOCKED;
             }
 

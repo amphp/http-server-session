@@ -8,7 +8,7 @@ use Amp\Promise;
  * When an operation fails, the driver must throw an Amp\Http\Server\Session\Exception and try to clean up any locks
  * regarding that $id.
  */
-interface Driver
+interface Storage
 {
     /**
      * Determines if the given identifier matches the format produced by the driver.

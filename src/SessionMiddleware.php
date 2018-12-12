@@ -15,8 +15,8 @@ final class SessionMiddleware implements Middleware
 {
     private const DEFAULT_COOKIE_NAME = 'session';
 
-    /** @var Driver */
-    private $driver;
+    /** @var Storage */
+    private $storage;
 
     /** @var string */
     private $cookieName;
@@ -28,18 +28,18 @@ final class SessionMiddleware implements Middleware
     private $requestAttribute;
 
     /**
-     * @param Driver                $driver
+     * @param Storage               $storage
      * @param CookieAttributes|null $cookieAttributes Attribute set for session cookies.
      * @param string                $cookieName Name of session identifier cookie.
      * @param string                $requestAttribute Name of the request attribute being used to store the session.
      */
     public function __construct(
-        Driver $driver,
+        Storage $storage,
         CookieAttributes $cookieAttributes = null,
         string $cookieName = self::DEFAULT_COOKIE_NAME,
         string $requestAttribute = Session::class
     ) {
-        $this->driver = $driver;
+        $this->storage = $storage;
         $this->cookieName = $cookieName;
         $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default();
         $this->requestAttribute = $requestAttribute;
@@ -57,7 +57,7 @@ final class SessionMiddleware implements Middleware
             $cookie = $request->getCookie($this->cookieName);
 
             $originalId = $cookie ? $cookie->getValue() : null;
-            $session = new Session($this->driver, $originalId);
+            $session = new Session($this->storage, $originalId);
 
             $request->setAttribute($this->requestAttribute, $session);
 

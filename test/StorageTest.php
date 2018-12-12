@@ -14,12 +14,12 @@ use function Amp\call;
 use function Amp\Promise\timeout;
 use function Amp\Promise\wait;
 
-abstract class DriverTest extends TestCase
+abstract class StorageTest extends TestCase
 {
-    abstract protected function createDriver(): Server\Session\Driver;
+    abstract protected function createDriver(): Server\Session\Storage;
 
     protected function respondWithSession(
-        Server\Session\Driver $driver,
+        Server\Session\Storage $driver,
         callable $requestHandler,
         string $sessionId = null
     ): Server\Response {
