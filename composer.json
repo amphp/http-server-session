@@ -27,7 +27,9 @@
         "amphp/http-server": "^1 || ^0.8",
         "amphp/redis": "^0.3.3",
         "kelunik/redis-mutex": "^0.2",
-        "paragonie/constant_time_encoding": "^2.2"
+        "paragonie/constant_time_encoding": "^2.2",
+        "amphp/sync": "^1",
+        "amphp/cache": "^1"
     },
     "require-dev": {
         "amphp/phpunit-util": "^1",

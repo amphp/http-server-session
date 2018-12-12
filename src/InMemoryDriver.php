@@ -2,15 +2,20 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Loop;
+use Amp\Cache\ArrayCache;
+use Amp\Cache\Cache;
 use Amp\Promise;
-use Amp\Redis\Client;
-use Amp\Success;
-use Kelunik\RedisMutex\Mutex;
+use Amp\Sync\LocalMutex;
+use Amp\Sync\Lock;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use function Amp\call;
 
-class RedisDriver implements Driver
+/**
+ * This driver saves all sessions in memory, mainly for local development purposes.
+ *
+ * Locking happens via LocalMutex, so it won't work correctly with multiple processes.
+ */
+class InMemoryDriver implements Driver
 {
     const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
     const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
@@ -21,59 +26,18 @@ class RedisDriver implements Driver
 
     const DEFAULT_TTL = 3600;
 
-    /** @var Client */
-    private $client;
+    /** @var Cache */
+    private $cache;
 
-    /** @var Mutex */
-    private $mutex;
+    /** @var LocalMutex[] */
+    private $mutex = [];
 
-    /** @var string[] */
+    /** @var Lock[] */
     private $locks = [];
 
-    /** @var string Watcher ID for mutex renewals. */
-    private $repeatTimer;
-
-    /** @var string */
-    private $keyPrefix;
-
-    /**
-     * @param Client $client
-     * @param Mutex  $mutex
-     * @param string $keyPrefix
-     */
-    public function __construct(Client $client, Mutex $mutex, string $keyPrefix = 'sess:')
+    public function __construct()
     {
-        $this->client = $client;
-        $this->mutex = $mutex;
-        $this->keyPrefix = $keyPrefix;
-
-        $locks = &$this->locks;
-
-        $this->repeatTimer = Loop::repeat($this->mutex->getTtl() / 2, static function () use (&$locks, $mutex) {
-            foreach ($locks as $id => $token) {
-                $mutex->renew($id, $token);
-            }
-        });
-
-        Loop::unreference($this->repeatTimer);
-    }
-
-    public function __destruct()
-    {
-        Loop::cancel($this->repeatTimer);
-    }
-
-    final protected function getKeyPrefix(): string
-    {
-        return $this->keyPrefix;
-    }
-
-    /**
-     * @return Client Redis client being used by the driver.
-     */
-    final protected function getClient(): Client
-    {
-        return $this->client;
+        $this->cache = new ArrayCache();
     }
 
     /** @inheritdoc */
@@ -104,7 +68,7 @@ class RedisDriver implements Driver
         return call(function () use ($id, $data, $ttl) {
             if (empty($data) || $ttl < 0) {
                 try {
-                    yield $this->client->del($this->keyPrefix . $id);
+                    yield $this->cache->delete($id);
                 } catch (\Throwable $error) {
                     throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
                 }
@@ -128,7 +92,7 @@ class RedisDriver implements Driver
             $data = \chr($flags & 0xff) . $data;
 
             try {
-                yield $this->client->set($this->keyPrefix . $id, $data, $ttl ?? self::DEFAULT_TTL);
+                yield $this->cache->set($id, $data, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
@@ -140,7 +104,7 @@ class RedisDriver implements Driver
     {
         return call(function () use ($id) {
             try {
-                $result = yield $this->client->get($this->keyPrefix . $id);
+                $result = yield $this->cache->get($id);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
@@ -159,7 +123,9 @@ class RedisDriver implements Driver
             list($ttl, $data) = \unserialize($result, ['allowed_classes' => true]);
 
             try {
-                yield $this->client->expire($this->keyPrefix . $id, $ttl ?? self::DEFAULT_TTL);
+                // Cache::set() can only be used here, because we know the implementation is synchronous,
+                // otherwise we'd need locking
+                yield $this->cache->set($id, yield $this->cache->get($id), $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
             }
@@ -171,20 +137,16 @@ class RedisDriver implements Driver
     /** @inheritdoc */
     public function lock(string $id): Promise
     {
-        if (isset($this->locks[$id])) {
-            return new Success;
-        }
+        return call(function () use ($id) {
+            if (!isset($this->mutex[$id])) {
+                $this->mutex[$id] = new LocalMutex;
+            }
 
-        $token = Base64UrlSafe::encode(\random_bytes(16));
-
-        return call(function () use ($id, $token) {
             try {
-                yield $this->mutex->lock($id, $token);
+                $this->locks[$id] = yield $this->mutex[$id]->acquire();
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't acquire lock for session '${id}'", 0, $error);
             }
-
-            $this->locks[$id] = $token;
 
             return $this->read($id);
         });
@@ -193,20 +155,22 @@ class RedisDriver implements Driver
     /** @inheritdoc */
     public function unlock(string $id): Promise
     {
-        $token = $this->locks[$id] ?? '';
+        return call(function () use ($id) {
+            if (!isset($this->locks[$id])) {
+                throw new \Error("Couldn't unlock session '${id}', because no lock exists");
+            }
 
-        if ($token === '') {
-            return new Success;
-        }
-
-        return call(function () use ($id, $token) {
             try {
-                yield $this->mutex->unlock($id, $token);
+                $lock = $this->locks[$id];
+                unset($this->locks[$id]);
+                $lock->release();
+
+                if (!isset($this->locks[$id])) {
+                    unset($this->mutex[$id]);
+                }
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't unlock session '${id}'", 0, $error);
             }
-
-            unset($this->locks[$id]);
         });
     }
 }

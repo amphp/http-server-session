@@ -36,7 +36,7 @@ interface Driver
     public function read(string $id): Promise;
 
     /**
-     * Saves and unlocks a session.
+     * Saves a session.
      *
      * @param string   $id The session identifier.
      * @param mixed    $data Data to store.

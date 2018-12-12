@@ -6,9 +6,12 @@ use Amp\ByteStream\Payload;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server;
 use Amp\Http\Server\Session\Session;
+use Amp\Loop;
 use Amp\PHPUnit\TestCase;
+use Amp\TimeoutException;
 use League\Uri\Http;
 use function Amp\call;
+use function Amp\Promise\timeout;
 use function Amp\Promise\wait;
 
 abstract class DriverTest extends TestCase
@@ -88,5 +91,26 @@ abstract class DriverTest extends TestCase
 
         $payload = new Payload($response->getBody());
         $this->assertSame("bar", wait($payload->buffer()));
+    }
+
+    public function testConcurrentLocking()
+    {
+        $driver = $this->createDriver();
+
+        wait($driver->lock('a'));
+
+        $this->expectException(TimeoutException::class);
+
+        try {
+            // dummy watcher to avoid "Loop stopped without resolving the promise"
+            $watcher = Loop::delay(2000, function () {
+                // do nothing
+            });
+
+            // should result in a timeout and never succeed, because there's already a lock
+            wait(timeout($driver->lock('a'), 1000));
+        } finally {
+            Loop::cancel($watcher);
+        }
     }
 }
