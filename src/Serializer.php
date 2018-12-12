@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Amp\Http\Server\Session;
 
 interface Serializer

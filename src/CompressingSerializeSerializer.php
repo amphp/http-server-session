@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Amp\Http\Server\Session;
 
 class CompressingSerializeSerializer implements Serializer
