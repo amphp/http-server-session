@@ -23,6 +23,7 @@
         }
     },
     "require": {
+        "php": ">=7.1.0",
         "amphp/amp": "^2",
         "amphp/http-server": "^1 || ^0.8",
         "amphp/redis": "^0.3.3",
@@ -39,7 +40,7 @@
     },
     "config": {
         "platform": {
-            "php": "7.0"
+            "php": "7.1"
         }
     },
     "scripts": {

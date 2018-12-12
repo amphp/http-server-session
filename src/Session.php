@@ -7,8 +7,8 @@ use function Amp\call;
 
 final class Session
 {
-    const STATUS_READ = 1;
-    const STATUS_LOCKED = 2;
+    private const STATUS_READ = 1;
+    private const STATUS_LOCKED = 2;
 
     /** @var Driver */
     private $driver;
@@ -28,7 +28,7 @@ final class Session
     /** @var int */
     private $openCount = 0;
 
-    public function __construct(Driver $driver, string $id = null)
+    public function __construct(Driver $driver, ?string $id)
     {
         $this->driver = $driver;
         $this->id = $id;
@@ -41,7 +41,7 @@ final class Session
     /**
      * @return string|null Session identifier.
      */
-    public function getId()
+    public function getId(): ?string
     {
         return $this->id;
     }
@@ -95,7 +95,7 @@ final class Session
             $newId = yield $this->driver->create();
 
             yield $this->driver->save($newId, $this->data);
-            yield $this->driver->save($this->id, [], 0);
+            yield $this->driver->save($this->id, []);
 
             $this->id = $newId;
             $this->status = self::STATUS_READ | self::STATUS_LOCKED;
@@ -153,16 +153,15 @@ final class Session
     }
 
     /**
-     * Saves the given data in the session. The session must be locked with either lock() or regenerate() before
-     * calling this method.
+     * Saves the given data in the session.
      *
-     * @param int $ttl Time for the data to live in the driver storage. Note this is separate from the cookie expiry.
+     * The session must be locked with either open() before calling this method.
      *
      * @return Promise
      */
-    public function save(int $ttl = null): Promise
+    public function save(): Promise
     {
-        return $this->pending = call(function () use ($ttl) {
+        return $this->pending = call(function () {
             if ($this->pending) {
                 yield $this->pending;
             }
@@ -172,9 +171,9 @@ final class Session
             }
 
             if ($this->data === []) {
-                yield $this->driver->save($this->id, [], 0);
+                yield $this->driver->save($this->id, []);
             } else {
-                yield $this->driver->save($this->id, $this->data, $ttl);
+                yield $this->driver->save($this->id, $this->data);
             }
 
             if ($this->openCount === 1) {
@@ -203,7 +202,7 @@ final class Session
 
         $this->data = [];
 
-        return $this->save(0);
+        return $this->save();
     }
 
     /**
@@ -296,14 +295,14 @@ final class Session
         return $this->data;
     }
 
-    private function assertRead()
+    private function assertRead(): void
     {
         if (!$this->isRead()) {
             throw new \Error('The session has not been read');
         }
     }
 
-    private function assertLocked()
+    private function assertLocked(): void
     {
         if (!($this->status & self::STATUS_LOCKED)) {
             throw new \Error('The session has not been locked');

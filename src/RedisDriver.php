@@ -12,14 +12,10 @@ use function Amp\call;
 
 class RedisDriver implements Driver
 {
-    const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
-    const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
+    public const DEFAULT_TTL = 3600;
 
-    const FLAG_COMPRESSED = 1;
-
-    const COMPRESSION_THRESHOLD = 256;
-
-    const DEFAULT_TTL = 3600;
+    private const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
+    private const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
 
     /** @var Client */
     private $client;

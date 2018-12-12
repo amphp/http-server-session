@@ -13,7 +13,7 @@ use function Amp\call;
 
 final class SessionMiddleware implements Middleware
 {
-    const DEFAULT_COOKIE_NAME = "session";
+    private const DEFAULT_COOKIE_NAME = 'session';
 
     /** @var Driver */
     private $driver;
