@@ -40,11 +40,10 @@ interface Driver
      *
      * @param string   $id The session identifier.
      * @param mixed    $data Data to store.
-     * @param int|null $ttl Time until session expiration or `null` for the driver's default TTL.
      *
      * @return Promise Resolving after success.
      */
-    public function save(string $id, array $data, int $ttl = null): Promise;
+    public function save(string $id, array $data): Promise;
 
     /**
      * Lock an existing session for writing and return the current session data.

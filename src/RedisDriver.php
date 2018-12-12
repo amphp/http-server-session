@@ -36,24 +36,27 @@ class RedisDriver implements Driver
     /** @var string */
     private $keyPrefix;
 
-    /** @var Serializer */
-    private $serializer;
+    /** @var int */
+    private $ttl;
 
     /**
      * @param Client     $client
      * @param Mutex      $mutex
      * @param Serializer $serializer
+     * @param int        $ttl
      * @param string     $keyPrefix
      */
     public function __construct(
         Client $client,
         Mutex $mutex,
         Serializer $serializer = null,
+        int $ttl = self::DEFAULT_TTL,
         string $keyPrefix = 'sess:'
     ) {
         $this->client = $client;
         $this->mutex = $mutex;
         $this->keyPrefix = $keyPrefix;
+        $this->ttl = $ttl;
         $this->serializer = $serializer ?? new CompressingSerializeSerializer();
 
         $locks = &$this->locks;
@@ -66,6 +69,9 @@ class RedisDriver implements Driver
 
         Loop::unreference($this->repeatTimer);
     }
+
+    /** @var Serializer */
+    private $serializer;
 
     public function __destruct()
     {
@@ -108,10 +114,10 @@ class RedisDriver implements Driver
     }
 
     /** @inheritdoc */
-    public function save(string $id, array $data, int $ttl = null): Promise
+    public function save(string $id, array $data): Promise
     {
-        return call(function () use ($id, $data, $ttl) {
-            if (empty($data) || $ttl < 0) {
+        return call(function () use ($id, $data) {
+            if (empty($data)) {
                 try {
                     yield $this->client->del($this->keyPrefix . $id);
                 } catch (\Throwable $error) {
@@ -122,13 +128,13 @@ class RedisDriver implements Driver
             }
 
             try {
-                $serializedData = $this->serializer->serialize($ttl ?? self::DEFAULT_TTL, $data);
+                $serializedData = $this->serializer->serialize($data);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
             }
 
             try {
-                yield $this->client->set($this->keyPrefix . $id, $serializedData, $ttl ?? self::DEFAULT_TTL);
+                yield $this->client->set($this->keyPrefix . $id, $serializedData, $this->ttl);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
@@ -145,14 +151,18 @@ class RedisDriver implements Driver
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
 
+            if ($result === null) {
+                return [];
+            }
+
             try {
-                $data = $this->serializer->unserialize($result, $ttl);
+                $data = $this->serializer->unserialize($result);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
 
             try {
-                yield $this->client->expire($this->keyPrefix . $id, $ttl ?? self::DEFAULT_TTL);
+                yield $this->client->expire($this->keyPrefix . $id, $this->ttl);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
             }

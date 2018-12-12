@@ -9,9 +9,9 @@ class CompressingSerializeSerializer implements Serializer
     const COMPRESSION_THRESHOLD = 256;
 
 
-    public function serialize(int $ttl, array $data): string
+    public function serialize(array $data): string
     {
-        $serializedData = \serialize([$ttl, $data]);
+        $serializedData = \serialize($data);
 
         $flags = 0;
 
@@ -23,12 +23,8 @@ class CompressingSerializeSerializer implements Serializer
         return \chr($flags & 0xff) . $serializedData;
     }
 
-    public function unserialize(string $data = null, &$ttl = null): array
+    public function unserialize(string $data): array
     {
-        if ($data === null || $data === '') {
-            return [];
-        }
-
         $firstByte = \ord($data[0]);
         $data = \substr($data, 1);
 
@@ -36,8 +32,6 @@ class CompressingSerializeSerializer implements Serializer
             $data = \gzinflate($data);
         }
 
-        list($ttl, $decodedData) = \unserialize($data, ['allowed_classes' => true]);
-
-        return $decodedData;
+        return \unserialize($data, ['allowed_classes' => true]);
     }
 }

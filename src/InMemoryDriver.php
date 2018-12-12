@@ -34,8 +34,12 @@ class InMemoryDriver implements Driver
     /** @var Serializer */
     private $serializer;
 
-    public function __construct(Serializer $serializer = null)
+    /** @var int */
+    private $ttl;
+
+    public function __construct(Serializer $serializer = null, int $ttl = self::DEFAULT_TTL)
     {
+        $this->ttl = $ttl;
         $this->cache = new ArrayCache();
         $this->serializer = $serializer ?? new CompressingSerializeSerializer;
     }
@@ -63,10 +67,10 @@ class InMemoryDriver implements Driver
     }
 
     /** @inheritdoc */
-    public function save(string $id, array $data, int $ttl = null): Promise
+    public function save(string $id, array $data): Promise
     {
-        return call(function () use ($id, $data, $ttl) {
-            if (empty($data) || $ttl < 0) {
+        return call(function () use ($id, $data) {
+            if (empty($data)) {
                 try {
                     yield $this->cache->delete($id);
                 } catch (\Throwable $error) {
@@ -77,13 +81,13 @@ class InMemoryDriver implements Driver
             }
 
             try {
-                $serializedData = $this->serializer->serialize($ttl ?? self::DEFAULT_TTL, $data);
+                $serializedData = $this->serializer->serialize($data);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
             }
 
             try {
-                yield $this->cache->set($id, $serializedData, $ttl ?? self::DEFAULT_TTL);
+                yield $this->cache->set($id, $serializedData, $this->ttl);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
@@ -105,7 +109,7 @@ class InMemoryDriver implements Driver
             }
 
             try {
-                $data = $this->serializer->unserialize($result, $ttl);
+                $data = $this->serializer->unserialize($result);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
@@ -113,7 +117,7 @@ class InMemoryDriver implements Driver
             try {
                 // Cache::set() can only be used here, because we know the implementation is synchronous,
                 // otherwise we'd need locking
-                yield $this->cache->set($id, $result, $ttl ?? self::DEFAULT_TTL);
+                yield $this->cache->set($id, $result, $this->ttl);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
             }
