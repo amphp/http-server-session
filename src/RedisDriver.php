@@ -36,16 +36,25 @@ class RedisDriver implements Driver
     /** @var string */
     private $keyPrefix;
 
+    /** @var Serializer */
+    private $serializer;
+
     /**
-     * @param Client $client
-     * @param Mutex  $mutex
-     * @param string $keyPrefix
+     * @param Client     $client
+     * @param Mutex      $mutex
+     * @param Serializer $serializer
+     * @param string     $keyPrefix
      */
-    public function __construct(Client $client, Mutex $mutex, string $keyPrefix = 'sess:')
-    {
+    public function __construct(
+        Client $client,
+        Mutex $mutex,
+        Serializer $serializer = null,
+        string $keyPrefix = 'sess:'
+    ) {
         $this->client = $client;
         $this->mutex = $mutex;
         $this->keyPrefix = $keyPrefix;
+        $this->serializer = $serializer ?? new CompressingSerializeSerializer();
 
         $locks = &$this->locks;
 
@@ -113,22 +122,13 @@ class RedisDriver implements Driver
             }
 
             try {
-                $data = \serialize([$ttl, $data]);
+                $serializedData = $this->serializer->serialize($ttl ?? self::DEFAULT_TTL, $data);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
             }
 
-            $flags = 0;
-
-            if (\strlen($data) > self::COMPRESSION_THRESHOLD) {
-                $data = \gzdeflate($data, 1);
-                $flags |= self::FLAG_COMPRESSED;
-            }
-
-            $data = \chr($flags & 0xff) . $data;
-
             try {
-                yield $this->client->set($this->keyPrefix . $id, $data, $ttl ?? self::DEFAULT_TTL);
+                yield $this->client->set($this->keyPrefix . $id, $serializedData, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
@@ -145,18 +145,11 @@ class RedisDriver implements Driver
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
 
-            if ($result === null || $result === '') {
-                return null;
+            try {
+                $data = $this->serializer->unserialize($result, $ttl);
+            } catch (\Throwable $error) {
+                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
-
-            $firstByte = \ord($result[0]);
-            $result = \substr($result, 1);
-
-            if ($firstByte & self::FLAG_COMPRESSED) {
-                $result = \gzinflate($result);
-            }
-
-            list($ttl, $data) = \unserialize($result, ['allowed_classes' => true]);
 
             try {
                 yield $this->client->expire($this->keyPrefix . $id, $ttl ?? self::DEFAULT_TTL);

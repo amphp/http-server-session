@@ -20,10 +20,6 @@ class InMemoryDriver implements Driver
     const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
     const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
 
-    const FLAG_COMPRESSED = 1;
-
-    const COMPRESSION_THRESHOLD = 256;
-
     const DEFAULT_TTL = 3600;
 
     /** @var Cache */
@@ -35,9 +31,13 @@ class InMemoryDriver implements Driver
     /** @var Lock[] */
     private $locks = [];
 
-    public function __construct()
+    /** @var Serializer */
+    private $serializer;
+
+    public function __construct(Serializer $serializer = null)
     {
         $this->cache = new ArrayCache();
+        $this->serializer = $serializer ?? new CompressingSerializeSerializer;
     }
 
     /** @inheritdoc */
@@ -77,22 +77,13 @@ class InMemoryDriver implements Driver
             }
 
             try {
-                $data = \serialize([$ttl, $data]);
+                $serializedData = $this->serializer->serialize($ttl ?? self::DEFAULT_TTL, $data);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
             }
 
-            $flags = 0;
-
-            if (\strlen($data) > self::COMPRESSION_THRESHOLD) {
-                $data = \gzdeflate($data, 1);
-                $flags |= self::FLAG_COMPRESSED;
-            }
-
-            $data = \chr($flags & 0xff) . $data;
-
             try {
-                yield $this->cache->set($id, $data, $ttl ?? self::DEFAULT_TTL);
+                yield $this->cache->set($id, $serializedData, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }
@@ -109,23 +100,20 @@ class InMemoryDriver implements Driver
                 throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
 
-            if ($result === null || $result === '') {
-                return null;
+            if ($result === null) {
+                return [];
             }
 
-            $firstByte = \ord($result[0]);
-            $result = \substr($result, 1);
-
-            if ($firstByte & self::FLAG_COMPRESSED) {
-                $result = \gzinflate($result);
+            try {
+                $data = $this->serializer->unserialize($result, $ttl);
+            } catch (\Throwable $error) {
+                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
             }
-
-            list($ttl, $data) = \unserialize($result, ['allowed_classes' => true]);
 
             try {
                 // Cache::set() can only be used here, because we know the implementation is synchronous,
                 // otherwise we'd need locking
-                yield $this->cache->set($id, yield $this->cache->get($id), $ttl ?? self::DEFAULT_TTL);
+                yield $this->cache->set($id, $result, $ttl ?? self::DEFAULT_TTL);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
             }
