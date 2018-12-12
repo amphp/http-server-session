@@ -171,10 +171,6 @@ class RedisDriver implements Driver
     /** @inheritdoc */
     public function lock(string $id): Promise
     {
-        if (isset($this->locks[$id])) {
-            return new Success;
-        }
-
         $token = Base64UrlSafe::encode(\random_bytes(16));
 
         return call(function () use ($id, $token) {
