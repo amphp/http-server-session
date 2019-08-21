@@ -31,7 +31,7 @@
         "php": ">=7.1",
         "amphp/amp": "^2",
         "amphp/http-server": "^2 || ^1 || ^0.8",
-        "amphp/redis": "^0.3.3",
+        "amphp/redis": "^0.3.3, !=0.3.4",
         "kelunik/redis-mutex": "^0.2",
         "paragonie/constant_time_encoding": "^2.2",
         "amphp/sync": "^1",
