@@ -2,19 +2,24 @@
 
 namespace Amp\Http\Server\Session\Test;
 
-use Amp\Http\Server;
-use Amp\Redis\Client;
-use Kelunik\RedisMutex\Mutex;
+use Amp\Http\Server\Session\RedisStorage;
+use Amp\Http\Server\Session\Storage;
+use Amp\Redis\Config;
+use Amp\Redis\Mutex\Mutex;
+use Amp\Redis\Redis;
+use Amp\Redis\RemoteExecutorFactory;
 
 class RedisStorageTest extends StorageTest
 {
-    protected function createStorage(): Server\Session\Storage
+    protected function createStorage(): Storage
     {
         if (!\getenv('AMP_HTTP_SERVER_SESSION_REDIS_TESTS')) {
             // Prevent tests from polluting a local Redis instance accidentally...
             $this->markTestSkipped('Please set the "AMP_HTTP_SERVER_SESSION_REDIS_TESTS" environment variable.');
         }
 
-        return new Server\Session\RedisStorage(new Client("tcp://127.0.0.1:6379"), new Mutex("tcp://127.0.0.1:6379"));
+        $factory = new RemoteExecutorFactory(new Config("tcp://127.0.0.1:6379"));
+
+        return new RedisStorage(new Redis($factory->createQueryExecutor()), new Mutex($factory));
     }
 }

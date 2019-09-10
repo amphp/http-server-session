@@ -4,9 +4,10 @@ namespace Amp\Http\Server\Session;
 
 use Amp\Loop;
 use Amp\Promise;
-use Amp\Redis\Client;
+use Amp\Redis\Redis;
+use Amp\Redis\Mutex\Mutex;
+use Amp\Redis\SetOptions;
 use Amp\Success;
-use Kelunik\RedisMutex\Mutex;
 use ParagonIE\ConstantTime\Base64UrlSafe;
 use function Amp\call;
 
@@ -17,7 +18,7 @@ class RedisStorage implements Storage
     private const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
     private const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
 
-    /** @var Client */
+    /** @var Redis */
     private $client;
 
     /** @var Mutex */
@@ -35,15 +36,18 @@ class RedisStorage implements Storage
     /** @var int */
     private $ttl;
 
+    /** @var Serializer */
+    private $serializer;
+
     /**
-     * @param Client     $client
+     * @param Redis      $client
      * @param Mutex      $mutex
      * @param Serializer $serializer
      * @param int        $ttl
      * @param string     $keyPrefix
      */
     public function __construct(
-        Client $client,
+        Redis $client,
         Mutex $mutex,
         Serializer $serializer = null,
         int $ttl = self::DEFAULT_TTL,
@@ -53,7 +57,7 @@ class RedisStorage implements Storage
         $this->mutex = $mutex;
         $this->keyPrefix = $keyPrefix;
         $this->ttl = $ttl;
-        $this->serializer = $serializer ?? new CompressingSerializeSerializer();
+        $this->serializer = $serializer ?? new CompressingSerializeSerializer;
 
         $locks = &$this->locks;
 
@@ -66,9 +70,6 @@ class RedisStorage implements Storage
         Loop::unreference($this->repeatTimer);
     }
 
-    /** @var Serializer */
-    private $serializer;
-
     public function __destruct()
     {
         Loop::cancel($this->repeatTimer);
@@ -80,9 +81,9 @@ class RedisStorage implements Storage
     }
 
     /**
-     * @return Client Redis client being used by the driver.
+     * @return Redis Redis client being used by the driver.
      */
-    final protected function getClient(): Client
+    final protected function getClient(): Redis
     {
         return $this->client;
     }
@@ -115,7 +116,7 @@ class RedisStorage implements Storage
         return call(function () use ($id, $data) {
             if (empty($data)) {
                 try {
-                    yield $this->client->del($this->keyPrefix . $id);
+                    yield $this->client->delete($this->keyPrefix . $id);
                 } catch (\Throwable $error) {
                     throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
                 }
@@ -130,7 +131,8 @@ class RedisStorage implements Storage
             }
 
             try {
-                yield $this->client->set($this->keyPrefix . $id, $serializedData, $this->ttl);
+                $options = (new SetOptions)->withTtl($this->ttl);
+                yield $this->client->set($this->keyPrefix . $id, $serializedData, $options);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
             }

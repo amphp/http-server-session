@@ -30,13 +30,13 @@
     "require": {
         "php": ">=7.1",
         "amphp/amp": "^2",
-        "amphp/http-server": "^2 || ^1 || ^0.8",
-        "amphp/redis": "^0.3.3, !=0.3.4",
-        "kelunik/redis-mutex": "^0.2",
+        "amphp/http-server": "^2",
+        "amphp/redis": "^1",
         "paragonie/constant_time_encoding": "^2.2",
         "amphp/sync": "^1",
         "amphp/cache": "^1"
     },
+    "minimum-stability": "RC",
     "require-dev": {
         "amphp/phpunit-util": "^1",
         "phpunit/phpunit": "^6",
