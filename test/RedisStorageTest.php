@@ -18,7 +18,7 @@ class RedisStorageTest extends StorageTest
             $this->markTestSkipped('Please set the "AMP_HTTP_SERVER_SESSION_REDIS_TESTS" environment variable.');
         }
 
-        $factory = new RemoteExecutorFactory(new Config("tcp://127.0.0.1:6379"));
+        $factory = new RemoteExecutorFactory(Config::fromUri("redis://localhost"));
 
         return new RedisStorage(new Redis($factory->createQueryExecutor()), new Mutex($factory));
     }

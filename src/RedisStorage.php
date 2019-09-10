@@ -4,8 +4,8 @@ namespace Amp\Http\Server\Session;
 
 use Amp\Loop;
 use Amp\Promise;
-use Amp\Redis\Redis;
 use Amp\Redis\Mutex\Mutex;
+use Amp\Redis\Redis;
 use Amp\Redis\SetOptions;
 use Amp\Success;
 use ParagonIE\ConstantTime\Base64UrlSafe;
