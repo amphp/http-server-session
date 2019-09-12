@@ -3,7 +3,6 @@
 namespace Amp\Http\Server\Session;
 
 use Amp\Cache\ArrayCache;
-use Amp\Cache\Cache;
 use Amp\Promise;
 use Amp\Sync\LocalMutex;
 use Amp\Sync\Lock;
@@ -18,7 +17,7 @@ class InMemoryStorage implements Storage
 {
     public const DEFAULT_TTL = 3600;
 
-    /** @var Cache */
+    /** @var ArrayCache */
     private $cache;
 
     /** @var LocalMutex[] */
@@ -36,10 +35,10 @@ class InMemoryStorage implements Storage
     /** @var int */
     private $ttl;
 
-    public function __construct(?Serializer $serializer = null, ?IdGenerator $idGenerator = null, int $ttl = self::DEFAULT_TTL)
+    public function __construct(int $ttl = self::DEFAULT_TTL, ?Serializer $serializer = null, ?IdGenerator $idGenerator = null)
     {
         $this->ttl = $ttl;
-        $this->cache = new ArrayCache();
+        $this->cache = new ArrayCache;
         $this->serializer = $serializer ?? new CompressingSerializeSerializer;
         $this->idGenerator = $idGenerator ?? new DefaultIdGenerator;
     }

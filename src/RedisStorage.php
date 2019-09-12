@@ -14,9 +14,6 @@ class RedisStorage implements Storage
 {
     public const DEFAULT_TTL = 3600;
 
-    private const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
-    private const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
-
     /** @var Redis */
     private $client;
 
@@ -52,9 +49,9 @@ class RedisStorage implements Storage
     public function __construct(
         Redis $client,
         Mutex $mutex,
+        int $ttl = self::DEFAULT_TTL,
         ?Serializer $serializer = null,
         ?IdGenerator $idGenerator = null,
-        int $ttl = self::DEFAULT_TTL,
         string $keyPrefix = 'sess:'
     ) {
         $this->client = $client;
