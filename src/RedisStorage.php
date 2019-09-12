@@ -5,6 +5,7 @@ namespace Amp\Http\Server\Session;
 use Amp\Loop;
 use Amp\Promise;
 use Amp\Redis\Mutex\Mutex;
+use Amp\Redis\QueryExecutorFactory;
 use Amp\Redis\Redis;
 use Amp\Redis\SetOptions;
 use Amp\Success;
@@ -39,22 +40,22 @@ class RedisStorage implements Storage
     private $idGenerator;
 
     /**
-     * @param Redis            $client
-     * @param Mutex            $mutex
-     * @param Serializer|null  $serializer
-     * @param IdGenerator|null $idGenerator
-     * @param int              $ttl
-     * @param string           $keyPrefix
+     * @param QueryExecutorFactory $executorFactory
+     * @param Mutex                $mutex
+     * @param int                  $ttl
+     * @param Serializer|null      $serializer
+     * @param IdGenerator|null     $idGenerator
+     * @param string               $keyPrefix
      */
     public function __construct(
-        Redis $client,
+        QueryExecutorFactory $executorFactory,
         Mutex $mutex,
         int $ttl = self::DEFAULT_TTL,
         ?Serializer $serializer = null,
         ?IdGenerator $idGenerator = null,
         string $keyPrefix = 'sess:'
     ) {
-        $this->client = $client;
+        $this->client = new Redis($executorFactory->createQueryExecutor());
         $this->mutex = $mutex;
         $this->keyPrefix = $keyPrefix;
         $this->ttl = $ttl;

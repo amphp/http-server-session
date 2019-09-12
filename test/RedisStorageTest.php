@@ -6,7 +6,6 @@ use Amp\Http\Server\Session\RedisStorage;
 use Amp\Http\Server\Session\Storage;
 use Amp\Redis\Config;
 use Amp\Redis\Mutex\Mutex;
-use Amp\Redis\Redis;
 use Amp\Redis\RemoteExecutorFactory;
 
 class RedisStorageTest extends StorageTest
@@ -20,6 +19,6 @@ class RedisStorageTest extends StorageTest
 
         $factory = new RemoteExecutorFactory(Config::fromUri("redis://localhost"));
 
-        return new RedisStorage(new Redis($factory->createQueryExecutor()), new Mutex($factory));
+        return new RedisStorage($factory, new Mutex($factory));
     }
 }
