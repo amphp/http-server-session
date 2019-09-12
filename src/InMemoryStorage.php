@@ -13,7 +13,7 @@ use function Amp\call;
  *
  * Locking happens via LocalMutex, so it won't work correctly with multiple processes.
  */
-class InMemoryStorage implements Storage
+final class InMemoryStorage implements Storage
 {
     public const DEFAULT_TTL = 3600;
 

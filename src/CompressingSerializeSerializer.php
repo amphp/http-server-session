@@ -2,11 +2,10 @@
 
 namespace Amp\Http\Server\Session;
 
-class CompressingSerializeSerializer implements Serializer
+final class CompressingSerializeSerializer implements Serializer
 {
     private const FLAG_COMPRESSED = 1;
     private const COMPRESSION_THRESHOLD = 256;
-
 
     public function serialize(array $data): string
     {

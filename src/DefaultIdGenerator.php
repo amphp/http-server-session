@@ -4,7 +4,7 @@ namespace Amp\Http\Server\Session;
 
 use ParagonIE\ConstantTime\Base64UrlSafe;
 
-class DefaultIdGenerator implements IdGenerator
+final class DefaultIdGenerator implements IdGenerator
 {
     private const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
     private const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.

@@ -11,7 +11,7 @@ use Amp\Redis\SetOptions;
 use Amp\Success;
 use function Amp\call;
 
-class RedisStorage implements Storage
+final class RedisStorage implements Storage
 {
     public const DEFAULT_TTL = 3600;
 
@@ -76,19 +76,6 @@ class RedisStorage implements Storage
     public function __destruct()
     {
         Loop::cancel($this->repeatTimer);
-    }
-
-    final protected function getKeyPrefix(): string
-    {
-        return $this->keyPrefix;
-    }
-
-    /**
-     * @return Redis Redis client being used by the driver.
-     */
-    final protected function getClient(): Redis
-    {
-        return $this->client;
     }
 
     /** @inheritdoc */
