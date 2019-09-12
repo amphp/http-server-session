@@ -172,7 +172,7 @@ class RedisStorage implements Storage
     /** @inheritdoc */
     public function lock(string $id): Promise
     {
-        $token = Base64UrlSafe::encode(\random_bytes(16));
+        $token = \base64_encode(\random_bytes(16));
 
         return call(function () use ($id, $token) {
             try {
