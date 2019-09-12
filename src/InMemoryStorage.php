@@ -7,7 +7,6 @@ use Amp\Cache\Cache;
 use Amp\Promise;
 use Amp\Sync\LocalMutex;
 use Amp\Sync\Lock;
-use ParagonIE\ConstantTime\Base64UrlSafe;
 use function Amp\call;
 
 /**
@@ -18,9 +17,6 @@ use function Amp\call;
 class InMemoryStorage implements Storage
 {
     public const DEFAULT_TTL = 3600;
-
-    private const ID_REGEXP = '/^[A-Za-z0-9_\-]{48}$/';
-    private const ID_BYTES = 36; // divisible by three to not waste chars with "=" and simplify regexp.
 
     /** @var Cache */
     private $cache;
@@ -34,33 +30,31 @@ class InMemoryStorage implements Storage
     /** @var Serializer */
     private $serializer;
 
+    /** @var IdGenerator */
+    private $idGenerator;
+
     /** @var int */
     private $ttl;
 
-    public function __construct(Serializer $serializer = null, int $ttl = self::DEFAULT_TTL)
+    public function __construct(?Serializer $serializer = null, ?IdGenerator $idGenerator = null, int $ttl = self::DEFAULT_TTL)
     {
         $this->ttl = $ttl;
         $this->cache = new ArrayCache();
         $this->serializer = $serializer ?? new CompressingSerializeSerializer;
-    }
-
-    /** @inheritdoc */
-    protected function generate(): string
-    {
-        return Base64UrlSafe::encode(\random_bytes(self::ID_BYTES));
+        $this->idGenerator = $idGenerator ?? new DefaultIdGenerator;
     }
 
     /** @inheritdoc */
     public function validate(string $id): bool
     {
-        return \preg_match(self::ID_REGEXP, $id);
+        return $this->idGenerator->validate($id);
     }
 
     /** @inheritdoc */
     public function create(): Promise
     {
         return call(function () {
-            $id = $this->generate();
+            $id = $this->idGenerator->generate();
             yield $this->lock($id);
             return $id;
         });

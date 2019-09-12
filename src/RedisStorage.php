@@ -8,7 +8,6 @@ use Amp\Redis\Mutex\Mutex;
 use Amp\Redis\Redis;
 use Amp\Redis\SetOptions;
 use Amp\Success;
-use ParagonIE\ConstantTime\Base64UrlSafe;
 use function Amp\call;
 
 class RedisStorage implements Storage
@@ -39,17 +38,22 @@ class RedisStorage implements Storage
     /** @var Serializer */
     private $serializer;
 
+    /** @var IdGenerator */
+    private $idGenerator;
+
     /**
-     * @param Redis      $client
-     * @param Mutex      $mutex
-     * @param Serializer $serializer
-     * @param int        $ttl
-     * @param string     $keyPrefix
+     * @param Redis            $client
+     * @param Mutex            $mutex
+     * @param Serializer|null  $serializer
+     * @param IdGenerator|null $idGenerator
+     * @param int              $ttl
+     * @param string           $keyPrefix
      */
     public function __construct(
         Redis $client,
         Mutex $mutex,
-        Serializer $serializer = null,
+        ?Serializer $serializer = null,
+        ?IdGenerator $idGenerator = null,
         int $ttl = self::DEFAULT_TTL,
         string $keyPrefix = 'sess:'
     ) {
@@ -58,6 +62,7 @@ class RedisStorage implements Storage
         $this->keyPrefix = $keyPrefix;
         $this->ttl = $ttl;
         $this->serializer = $serializer ?? new CompressingSerializeSerializer;
+        $this->idGenerator = $idGenerator ?? new DefaultIdGenerator;
 
         $locks = &$this->locks;
 
@@ -89,22 +94,16 @@ class RedisStorage implements Storage
     }
 
     /** @inheritdoc */
-    protected function generate(): string
-    {
-        return Base64UrlSafe::encode(\random_bytes(self::ID_BYTES));
-    }
-
-    /** @inheritdoc */
     public function validate(string $id): bool
     {
-        return \preg_match(self::ID_REGEXP, $id);
+        return $this->idGenerator->validate($id);
     }
 
     /** @inheritdoc */
     public function create(): Promise
     {
         return call(function () {
-            $id = $this->generate();
+            $id = $this->idGenerator->generate();
             yield $this->lock($id);
             return $id;
         });
