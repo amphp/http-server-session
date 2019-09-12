@@ -7,14 +7,14 @@ use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server;
 use Amp\Http\Server\Session\Session;
 use Amp\Loop;
-use Amp\PHPUnit\TestCase;
+use Amp\PHPUnit\AsyncTestCase;
+use Amp\Promise;
 use Amp\TimeoutException;
 use League\Uri\Http;
 use function Amp\call;
 use function Amp\Promise\timeout;
-use function Amp\Promise\wait;
 
-abstract class StorageTest extends TestCase
+abstract class StorageTest extends AsyncTestCase
 {
     abstract protected function createStorage(): Server\Session\Storage;
 
@@ -22,8 +22,8 @@ abstract class StorageTest extends TestCase
         Server\Session\Storage $storage,
         callable $requestHandler,
         string $sessionId = null
-    ): Server\Response {
-        return wait(call(function () use ($storage, $requestHandler, $sessionId) {
+    ): Promise {
+        return call(function () use ($storage, $requestHandler, $sessionId) {
             $requestHandler = Server\Middleware\stack(
                 new Server\RequestHandler\CallableRequestHandler($requestHandler),
                 new Server\Session\SessionMiddleware($storage)
@@ -36,12 +36,12 @@ abstract class StorageTest extends TestCase
             }
 
             return $requestHandler->handleRequest($request);
-        }));
+        });
     }
 
-    public function testNoCookieWithoutSessionData(): void
+    public function testNoCookieWithoutSessionData(): \Generator
     {
-        $response = $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
+        $response = yield $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             yield $session->save();
@@ -52,9 +52,9 @@ abstract class StorageTest extends TestCase
         $this->assertNull($response->getHeader('set-cookie'));
     }
 
-    public function testCookieGetsCreated(): void
+    public function testCookieGetsCreated(): \Generator
     {
-        $response = $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
+        $response = yield $this->respondWithSession($this->createStorage(), function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
@@ -66,11 +66,11 @@ abstract class StorageTest extends TestCase
         $this->assertNotNull($response->getHeader('set-cookie'));
     }
 
-    public function testPersistsData(): void
+    public function testPersistsData(): \Generator
     {
         $driver = $this->createStorage();
 
-        $response = $this->respondWithSession($driver, function (Server\Request $request) {
+        $response = yield $this->respondWithSession($driver, function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->open();
             $session->set("foo", "bar");
@@ -82,7 +82,7 @@ abstract class StorageTest extends TestCase
         $sessionCookie = ResponseCookie::fromHeader($response->getHeader("set-cookie"));
         $this->assertNotNull($sessionCookie);
 
-        $response = $this->respondWithSession($driver, function (Server\Request $request) {
+        $response = yield $this->respondWithSession($driver, function (Server\Request $request) {
             /** @var Session $session */
             $session = yield $request->getAttribute(Session::class)->read();
 
@@ -90,14 +90,14 @@ abstract class StorageTest extends TestCase
         }, $sessionCookie->getValue());
 
         $payload = new Payload($response->getBody());
-        $this->assertSame("bar", wait($payload->buffer()));
+        $this->assertSame("bar", yield $payload->buffer());
     }
 
-    public function testConcurrentLocking(): void
+    public function testConcurrentLocking(): \Generator
     {
         $driver = $this->createStorage();
 
-        wait($driver->lock('a'));
+        yield $driver->lock('a');
 
         $this->expectException(TimeoutException::class);
 
@@ -108,7 +108,7 @@ abstract class StorageTest extends TestCase
             });
 
             // should result in a timeout and never succeed, because there's already a lock
-            wait(timeout($driver->lock('a'), 1000));
+            yield timeout($driver->lock('a'), 1000);
         } finally {
             Loop::cancel($watcher);
         }

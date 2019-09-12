@@ -12,11 +12,6 @@
         processIsolation="false"
         stopOnFailure="false"
 >
-    <php>
-        <!-- Needed because @dataProvider uses iterator_to_array() -->
-        <ini name="memory_limit" value="1G" />
-        <ini name="error_reporting" value="-1" />
-    </php>
     <testsuites>
         <testsuite name="Main">
             <directory>test</directory>
@@ -27,11 +22,8 @@
             <directory suffix=".php">src</directory>
         </whitelist>
     </filter>
-    <listeners>
-        <listener class="Amp\PHPUnit\LoopReset"/>
-    </listeners>
     <logging>
-        <log type="coverage-html" target="build/coverage" title="Amp HTTP Server Session" highlight="true"/>
+        <log type="coverage-html" target="build/coverage"/>
         <log type="coverage-clover" target="build/logs/clover.xml"/>
     </logging>
 </phpunit>

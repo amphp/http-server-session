@@ -35,14 +35,15 @@
         "amphp/sync": "^1",
         "amphp/cache": "^1"
     },
-    "minimum-stability": "RC",
     "require-dev": {
         "amphp/redis": "^1",
-        "amphp/phpunit-util": "^1",
-        "phpunit/phpunit": "^6",
+        "amphp/phpunit-util": "^1.1",
+        "phpunit/phpunit": "^8 || ^7",
         "amphp/http": "^1",
-        "amphp/php-cs-fixer-config": "dev-master"
+        "amphp/php-cs-fixer-config": "dev-master",
+        "league/uri-schemes": "^1.1"
     },
+    "minimum-stability": "RC",
     "suggest": {
         "amphp/redis": "Allows storing session data in Redis"
     },
