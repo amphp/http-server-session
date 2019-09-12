@@ -48,6 +48,9 @@
     "suggest": {
         "amphp/redis": "Allows storing session data in Redis"
     },
+    "conflict": {
+        "amphp/redis": "<1 || >=2"
+    },
     "scripts": {
         "test": "@php -dzend.assertions=1 -dassert.exception=1 ./vendor/bin/phpunit",
         "code-style": "@php ./vendor/bin/php-cs-fixer fix"
