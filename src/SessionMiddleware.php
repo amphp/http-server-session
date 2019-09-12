@@ -2,6 +2,7 @@
 
 namespace Amp\Http\Server\Session;
 
+use Amp\Http;
 use Amp\Http\Cookie\CookieAttributes;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server\Middleware;
@@ -85,33 +86,30 @@ final class SessionMiddleware implements Middleware
                 );
 
                 $response->setCookie(new ResponseCookie($this->cookieName, '', $attributes));
-
-                return $response;
-            }
-
-            if ($cookie === null || $cookie->getValue() !== $id) {
+            } else {
                 $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
             }
 
-            $cacheControl = $response->getHeaderArray("cache-control");
+            $cacheControl = Http\parseFieldValueComponents($response, "cache-control");
 
             if (empty($cacheControl)) {
                 $response->setHeader("cache-control", "private");
             } else {
-                foreach ($cacheControl as $key => $value) {
-                    $tokens = \array_map("trim", \explode(",", $value));
-                    $tokens = \array_filter($tokens, function ($token) {
-                        return $token !== "public";
-                    });
+                $tokens = [];
+                foreach ($cacheControl as [$key, $value]) {
+                    switch (\strtolower($key)) {
+                        case "public":
+                        case "private":
+                            continue 2;
 
-                    if (!\in_array("private", $tokens, true)) {
-                        $tokens[] = "private";
+                        default:
+                            $tokens[] = $value === '' ? $key : $key . '=' . $value;
                     }
-
-                    $cacheControl[$key] = \implode(",", $tokens);
                 }
 
-                $response->setHeader("cache-control", $cacheControl);
+                $tokens[] = "private";
+
+                $response->setHeader("cache-control", \implode(",", $tokens));
             }
 
             return $response;
