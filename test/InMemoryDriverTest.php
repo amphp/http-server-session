@@ -4,7 +4,7 @@ namespace Amp\Http\Server\Session\Test;
 
 use Amp\Http\Server\Session\Driver;
 use Amp\Http\Server\Session\InMemoryStorage;
-use Amp\Http\Server\Session\LocalKeyedMutex;
+use Amp\Sync\LocalKeyedMutex;
 
 class InMemoryDriverTest extends DriverTest
 {
