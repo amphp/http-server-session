@@ -16,8 +16,8 @@ final class SessionMiddleware implements Middleware
 {
     public const DEFAULT_COOKIE_NAME = 'session';
 
-    /** @var Storage */
-    private $storage;
+    /** @var Driver */
+    private $driver;
 
     /** @var string */
     private $cookieName;
@@ -29,20 +29,20 @@ final class SessionMiddleware implements Middleware
     private $requestAttribute;
 
     /**
-     * @param Storage               $storage
+     * @param Driver                $driver
      * @param CookieAttributes|null $cookieAttributes Attribute set for session cookies.
      * @param string                $cookieName Name of session identifier cookie.
      * @param string                $requestAttribute Name of the request attribute being used to store the session.
      */
     public function __construct(
-        Storage $storage,
+        Driver $driver,
         CookieAttributes $cookieAttributes = null,
         string $cookieName = self::DEFAULT_COOKIE_NAME,
         string $requestAttribute = Session::class
     ) {
-        $this->storage = $storage;
+        $this->driver = $driver;
         $this->cookieName = $cookieName;
-        $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default();
+        $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default()->withSameSite(CookieAttributes::SAMESITE_LAX);
         $this->requestAttribute = $requestAttribute;
     }
 
@@ -50,7 +50,7 @@ final class SessionMiddleware implements Middleware
      * @param Request        $request
      * @param RequestHandler $responder Request responder.
      *
-     * @return Promise<\Amp\Http\Server\Response>
+     * @return Promise<Response>
      */
     public function handleRequest(Request $request, RequestHandler $responder): Promise
     {
@@ -58,31 +58,25 @@ final class SessionMiddleware implements Middleware
             $cookie = $request->getCookie($this->cookieName);
 
             $originalId = $cookie ? $cookie->getValue() : null;
-            $session = new Session($this->storage, $originalId);
+            $session = $this->driver->create($originalId);
 
             $request->setAttribute($this->requestAttribute, $session);
 
-            try {
-                $response = yield $responder->handleRequest($request);
-            } finally {
-                if ($session->isLocked()) {
-                    $session->unlock();
-                }
-            }
+            $response = yield $responder->handleRequest($request);
 
             if (!$response instanceof Response) {
-                throw new \TypeError("Request handler must resolve to an instance of " . Response::class);
+                throw new \TypeError('Request handler must resolve to an instance of ' . Response::class);
             }
 
             $id = $session->getId();
 
-            if ($id === null || !$session->isRead()) {
+            if ($id === null && $originalId === null) {
                 return $response;
             }
 
-            if ($session->isEmpty()) {
+            if ($id === null || ($session->isRead() && $session->isEmpty())) {
                 $attributes = $this->cookieAttributes->withExpiry(
-                    new \DateTimeImmutable("@0", new \DateTimeZone("UTC"))
+                    new \DateTimeImmutable('@0', new \DateTimeZone('UTC'))
                 );
 
                 $response->setCookie(new ResponseCookie($this->cookieName, '', $attributes));
@@ -90,16 +84,16 @@ final class SessionMiddleware implements Middleware
                 $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
             }
 
-            $cacheControl = Http\parseFieldValueComponents($response, "cache-control");
+            $cacheControl = Http\parseFieldValueComponents($response, 'cache-control');
 
             if (empty($cacheControl)) {
-                $response->setHeader("cache-control", "private");
+                $response->setHeader('cache-control', 'private');
             } else {
                 $tokens = [];
                 foreach ($cacheControl as [$key, $value]) {
                     switch (\strtolower($key)) {
-                        case "public":
-                        case "private":
+                        case 'public':
+                        case 'private':
                             continue 2;
 
                         default:
@@ -107,9 +101,9 @@ final class SessionMiddleware implements Middleware
                     }
                 }
 
-                $tokens[] = "private";
+                $tokens[] = 'private';
 
-                $response->setHeader("cache-control", \implode(",", $tokens));
+                $response->setHeader('cache-control', \implode(',', $tokens));
             }
 
             return $response;

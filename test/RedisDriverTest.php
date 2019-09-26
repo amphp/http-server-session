@@ -1,24 +1,24 @@
-<?php
+<?php /** @noinspection PhpUnhandledExceptionInspection */
 
 namespace Amp\Http\Server\Session\Test;
 
+use Amp\Http\Server\Session\Driver;
 use Amp\Http\Server\Session\RedisStorage;
-use Amp\Http\Server\Session\Storage;
 use Amp\Redis\Config;
 use Amp\Redis\Mutex\Mutex;
 use Amp\Redis\RemoteExecutorFactory;
 
-class RedisStorageTest extends StorageTest
+class RedisDriverTest extends DriverTest
 {
-    protected function createStorage(): Storage
+    protected function createDriver(): Driver
     {
         if (!\getenv('AMP_HTTP_SERVER_SESSION_REDIS_TESTS')) {
             // Prevent tests from polluting a local Redis instance accidentally...
             $this->markTestSkipped('Please set the "AMP_HTTP_SERVER_SESSION_REDIS_TESTS" environment variable.');
         }
 
-        $factory = new RemoteExecutorFactory(Config::fromUri("redis://localhost"));
+        $executorFactory = new RemoteExecutorFactory(Config::fromUri('redis://'));
 
-        return new RedisStorage($factory, new Mutex($factory));
+        return new Driver(new Mutex($executorFactory), new RedisStorage($executorFactory));
     }
 }

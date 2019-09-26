@@ -1,8 +1,11 @@
-<?php
+<?php /** @noinspection PhpUndefinedClassInspection */
 
 namespace Amp\Http\Server\Session;
 
 use Amp\Promise;
+use Amp\Success;
+use Amp\Sync\KeyedMutex;
+use Amp\Sync\Lock;
 use function Amp\call;
 
 final class Session
@@ -10,8 +13,14 @@ final class Session
     private const STATUS_READ = 1;
     private const STATUS_LOCKED = 2;
 
+    /** @var KeyedMutex */
+    private $mutex;
+
     /** @var Storage */
     private $storage;
+
+    /** @var IdGenerator */
+    private $generator;
 
     /** @var string|null */
     private $id;
@@ -28,13 +37,20 @@ final class Session
     /** @var int */
     private $openCount = 0;
 
-    public function __construct(Storage $storage, ?string $id)
-    {
-        $this->storage = $storage;
-        $this->id = $id;
+    /** @var Lock|null */
+    private $lock;
 
-        if ($this->id !== null && !$this->storage->validate($id)) {
+    public function __construct(KeyedMutex $mutex, Storage $storage, IdGenerator $generator, ?string $clientId)
+    {
+        $this->mutex = $mutex;
+        $this->storage = $storage;
+        $this->generator = $generator;
+        $this->pending = new Success;
+
+        if ($clientId === null || !$generator->validate($clientId)) {
             $this->id = null;
+        } else {
+            $this->id = $clientId;
         }
     }
 
@@ -69,36 +85,34 @@ final class Session
      */
     public function isEmpty(): bool
     {
-        if ($this->status & self::STATUS_READ === 0) {
-            throw new \Error('The session has not been read');
-        }
+        $this->assertRead();
 
         return empty($this->data);
     }
 
     /**
-     * Regenerates a session identifier and locks the session.
+     * Regenerates a session identifier.
      *
      * @return Promise Resolving with the new session identifier.
      */
     public function regenerate(): Promise
     {
         return $this->pending = call(function () {
-            if ($this->pending) {
-                yield $this->pending;
-            }
+            yield $this->pending;
 
-            if ($this->id === null || !$this->isLocked()) {
-                throw new \Error('Cannot save an unlocked session');
-            }
+            $this->assertLocked();
 
-            $newId = yield $this->storage->create();
+            $newId = $this->generator->generate();
+            $newLock = yield $this->mutex->acquire($newId);
 
-            yield $this->storage->save($newId, $this->data);
-            yield $this->storage->save($this->id, []);
+            yield $this->storage->write($newId, $this->data);
+            yield $this->storage->write($this->id, []);
 
+            $oldLock = $this->lock;
+            $oldLock->release();
+
+            $this->lock = $newLock;
             $this->id = $newId;
-            $this->status = self::STATUS_READ | self::STATUS_LOCKED;
 
             return $this->id;
         });
@@ -112,9 +126,7 @@ final class Session
     public function read(): Promise
     {
         return $this->pending = call(function () {
-            if ($this->pending) {
-                yield $this->pending;
-            }
+            yield $this->pending;
 
             if ($this->id !== null) {
                 $this->data = yield $this->storage->read($this->id);
@@ -134,14 +146,19 @@ final class Session
     public function open(): Promise
     {
         return $this->pending = call(function () {
-            if ($this->pending) {
-                yield $this->pending;
-            }
+            yield $this->pending;
 
             if ($this->id === null) {
-                $this->id = yield $this->storage->create();
-            } else {
-                $this->data = yield $this->storage->lock($this->id);
+                $newId = $this->generator->generate();
+                $newLock = yield $this->mutex->acquire($newId);
+
+                $this->id = $newId;
+                $this->lock = $newLock;
+
+                $this->data = [];
+            } elseif (!$this->isLocked()) {
+                $this->lock = yield $this->mutex->acquire($this->id);
+                $this->data = yield $this->storage->read($this->id);
             }
 
             ++$this->openCount;
@@ -162,22 +179,15 @@ final class Session
     public function save(): Promise
     {
         return $this->pending = call(function () {
-            if ($this->pending) {
-                yield $this->pending;
-            }
+            yield $this->pending;
 
-            if (!$this->isLocked()) {
-                throw new \Error('Cannot save an unlocked session');
-            }
+            $this->assertLocked();
 
-            if ($this->data === []) {
-                yield $this->storage->save($this->id, []);
-            } else {
-                yield $this->storage->save($this->id, $this->data);
-            }
+            yield $this->storage->write($this->id, $this->data);
 
             if ($this->openCount === 1) {
-                yield $this->storage->unlock($this->id);
+                $this->lock->release();
+                $this->lock = null;
                 $this->status &= ~self::STATUS_LOCKED;
 
                 if ($this->data === []) {
@@ -198,11 +208,15 @@ final class Session
      */
     public function destroy(): Promise
     {
-        $this->assertLocked();
+        return $this->pending = call(function () {
+            yield $this->pending;
 
-        $this->data = [];
+            $this->assertLocked();
 
-        return $this->save();
+            $this->data = [];
+
+            return $this->save();
+        });
     }
 
     /**
@@ -213,16 +227,15 @@ final class Session
     public function unlock(): Promise
     {
         return $this->pending = call(function () {
-            if ($this->pending) {
-                yield $this->pending;
-            }
+            yield $this->pending;
 
             if (!$this->isLocked()) {
                 return;
             }
 
             if ($this->openCount === 1) {
-                yield $this->storage->unlock($this->id);
+                $this->lock->release();
+                $this->lock = null;
                 $this->status &= ~self::STATUS_LOCKED;
             }
 
@@ -264,7 +277,7 @@ final class Session
      *
      * @throws \Error If the session has not been opened for writing.
      */
-    public function set(string $key, $data)
+    public function set(string $key, $data): void
     {
         $this->assertLocked();
 
@@ -276,7 +289,7 @@ final class Session
      *
      * @throws \Error If the session has not been opened for writing.
      */
-    public function unset(string $key)
+    public function unset(string $key): void
     {
         $this->assertLocked();
 
@@ -284,7 +297,7 @@ final class Session
     }
 
     /**
-     * @return string[]
+     * @return mixed[]
      *
      * @throws \Error If the session has not been read.
      */
@@ -304,7 +317,7 @@ final class Session
 
     private function assertLocked(): void
     {
-        if (!($this->status & self::STATUS_LOCKED)) {
+        if (!$this->isLocked()) {
             throw new \Error('The session has not been locked');
         }
     }

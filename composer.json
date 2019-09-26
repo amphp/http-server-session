@@ -33,14 +33,13 @@
         "amphp/http": "^1.3",
         "amphp/http-server": "^2",
         "paragonie/constant_time_encoding": "^2.2",
-        "amphp/sync": "^1",
+        "amphp/sync": "^1.1",
         "amphp/cache": "^1"
     },
     "require-dev": {
-        "amphp/redis": "^1",
+        "amphp/redis": "^1-RC2",
         "amphp/phpunit-util": "^1.1",
         "phpunit/phpunit": "^8 || ^7",
-        "amphp/http": "^1",
         "amphp/php-cs-fixer-config": "dev-master",
         "league/uri-schemes": "^1.1"
     },
