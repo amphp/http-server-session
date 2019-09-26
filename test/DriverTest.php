@@ -116,8 +116,11 @@ abstract class DriverTest extends AsyncTestCase
                 new Server\Session\SessionMiddleware($driver)
             );
 
-            $request = new Server\Request($this->createMock(Server\Driver\Client::class),
-                'GET', Http::createFromString('/'));
+            $request = new Server\Request(
+                $this->createMock(Server\Driver\Client::class),
+                'GET',
+                Http::createFromString('/')
+            );
 
             if ($sessionId !== null) {
                 $request->setHeader('cookie', Server\Session\SessionMiddleware::DEFAULT_COOKIE_NAME . '=' . $sessionId);
