@@ -83,7 +83,13 @@ abstract class DriverTest extends AsyncTestCase
         $sessionA = $driver->create($sessionId);
         $sessionB = $driver->create($sessionId);
 
+        $this->assertFalse($sessionA->isRead());
+        $this->assertFalse($sessionA->isLocked());
+
         yield $sessionA->open();
+
+        $this->assertTrue($sessionA->isRead());
+        $this->assertTrue($sessionA->isLocked());
 
         $this->expectException(TimeoutException::class);
 

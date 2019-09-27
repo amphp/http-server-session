@@ -67,7 +67,7 @@ final class Session
      */
     public function isRead(): bool
     {
-        return $this->status & self::STATUS_READ !== 0;
+        return ($this->status & self::STATUS_READ) !== 0;
     }
 
     /**
@@ -75,7 +75,7 @@ final class Session
      */
     public function isLocked(): bool
     {
-        return $this->status & self::STATUS_LOCKED !== 0;
+        return ($this->status & self::STATUS_LOCKED) !== 0;
     }
 
     /**
