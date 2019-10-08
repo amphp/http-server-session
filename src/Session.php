@@ -321,11 +321,4 @@ final class Session
             throw new \Error('The session has not been locked');
         }
     }
-
-    public function __destruct()
-    {
-        if ($this->lock) {
-            $this->lock->release();
-        }
-    }
 }

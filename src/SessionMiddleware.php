@@ -68,6 +68,12 @@ final class SessionMiddleware implements Middleware
                 throw new \TypeError('Request handler must resolve to an instance of ' . Response::class);
             }
 
+            $response->onDispose(static function () use ($session): void {
+                if ($session->isLocked()) {
+                    $session->unlock();
+                }
+            });
+
             $id = $session->getId();
 
             if ($id === null && $originalId === null) {
