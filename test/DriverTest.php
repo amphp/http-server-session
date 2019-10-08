@@ -9,9 +9,13 @@ use Amp\Http\Server\Session\Session;
 use Amp\Loop;
 use Amp\PHPUnit\AsyncTestCase;
 use Amp\Promise;
+use Amp\Success;
+use Amp\Sync\KeyedMutex;
+use Amp\Sync\Lock;
 use Amp\TimeoutException;
 use League\Uri\Http;
 use function Amp\call;
+use function Amp\delay;
 use function Amp\Promise\timeout;
 
 abstract class DriverTest extends AsyncTestCase
@@ -43,6 +47,20 @@ abstract class DriverTest extends AsyncTestCase
         });
 
         $this->assertNotNull($response->getHeader('set-cookie'));
+    }
+
+    public function testCircularReference(): \Generator
+    {
+        $this->setTimeout(1000);
+
+        $driver = $this->createDriver();
+
+        $session = $driver->create((new Server\Session\DefaultIdGenerator)->generate());
+        yield $session->open();
+
+        \gc_collect_cycles();
+        $session = null;
+        $this->assertSame(0, \gc_collect_cycles());
     }
 
     public function testPersistsData(): \Generator

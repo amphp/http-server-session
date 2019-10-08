@@ -97,9 +97,7 @@ final class Session
      */
     public function regenerate(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
-
+        return $this->synchronized(function () {
             $this->assertLocked();
 
             $newId = $this->generator->generate();
@@ -125,9 +123,7 @@ final class Session
      */
     public function read(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
-
+        return $this->synchronized(function () {
             if ($this->id !== null) {
                 $this->data = yield $this->storage->read($this->id);
             }
@@ -145,9 +141,7 @@ final class Session
      */
     public function open(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
-
+        return $this->synchronized(function () {
             if ($this->id === null) {
                 $newId = $this->generator->generate();
                 $newLock = yield $this->mutex->acquire($newId);
@@ -178,8 +172,7 @@ final class Session
      */
     public function save(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
+        return $this->synchronized(function () {
 
             $this->assertLocked();
 
@@ -208,9 +201,7 @@ final class Session
      */
     public function destroy(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
-
+        return $this->synchronized(function () {
             $this->assertLocked();
 
             $this->data = [];
@@ -226,9 +217,7 @@ final class Session
      */
     public function unlock(): Promise
     {
-        return $this->pending = call(function () {
-            yield $this->pending;
-
+        return $this->synchronized(function () {
             if (!$this->isLocked()) {
                 return;
             }
@@ -306,6 +295,28 @@ final class Session
         $this->assertRead();
 
         return $this->data;
+    }
+
+    private function synchronized(callable $callable): Promise
+    {
+        $this->pending = $promise = call(function () use ($callable) {
+            try {
+                yield $this->pending;
+            } catch (\Throwable $e) {
+                // ignore
+            }
+
+            return call($callable);
+        });
+
+        // Clean up circular reference to the session object
+        $promise->onResolve(function () use ($promise) {
+            if ($this->pending === $promise) {
+                $this->pending = new Success;
+            }
+        });
+
+        return $promise;
     }
 
     private function assertRead(): void
