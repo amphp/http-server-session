@@ -173,7 +173,6 @@ final class Session
     public function save(): Promise
     {
         return $this->synchronized(function () {
-
             $this->assertLocked();
 
             yield $this->storage->write($this->id, $this->data);

@@ -9,8 +9,6 @@ use Amp\Http\Server\Session\Session;
 use Amp\Loop;
 use Amp\PHPUnit\AsyncTestCase;
 use Amp\Promise;
-use Amp\Success;
-use Amp\Sync\KeyedMutex;
 use Amp\Sync\Lock;
 use Amp\TimeoutException;
 use League\Uri\Http;
