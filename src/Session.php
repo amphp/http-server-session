@@ -233,6 +233,26 @@ final class Session
     }
 
     /**
+     * Releases all locks on the session.
+     *
+     * @return Promise
+     */
+    public function unlockAll(): Promise
+    {
+        return $this->synchronized(function () {
+            if (!$this->isLocked()) {
+                return;
+            }
+
+            $this->lock->release();
+            $this->lock = null;
+            $this->status &= ~self::STATUS_LOCKED;
+
+            $this->openCount = 0;
+        });
+    }
+
+    /**
      * @param string $key
      *
      * @return bool
