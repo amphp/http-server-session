@@ -300,7 +300,11 @@ final class Session
     private function synchronized(callable $callable): Promise
     {
         $this->pending = $promise = call(function () use ($callable) {
-            yield $this->pending;
+            try {
+                yield $this->pending;
+            } catch (\Throwable $e) {
+                // ignore
+            }
 
             return call($callable);
         });
