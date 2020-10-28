@@ -6,6 +6,9 @@ use Amp\Promise;
 use Amp\Redis\QueryExecutorFactory;
 use Amp\Redis\Redis;
 use Amp\Redis\SetOptions;
+use Amp\Serialization\CompressingSerializer;
+use Amp\Serialization\NativeSerializer;
+use Amp\Serialization\Serializer;
 use function Amp\call;
 
 final class RedisStorage implements Storage
@@ -37,7 +40,7 @@ final class RedisStorage implements Storage
         string $keyPrefix = 'session:'
     ) {
         $this->redis = new Redis($executorFactory->createQueryExecutor());
-        $this->serializer = $serializer ?? new CompressingSerializeSerializer;
+        $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
         $this->sessionLifetime = $sessionLifetime;
         $this->keyPrefix = $keyPrefix;
     }

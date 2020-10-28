@@ -4,6 +4,9 @@ namespace Amp\Http\Server\Session;
 
 use Amp\Cache\ArrayCache;
 use Amp\Promise;
+use Amp\Serialization\CompressingSerializer;
+use Amp\Serialization\NativeSerializer;
+use Amp\Serialization\Serializer;
 use function Amp\call;
 
 /**
@@ -26,7 +29,7 @@ final class InMemoryStorage implements Storage
 
     public function __construct(?Serializer $serializer = null, int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME)
     {
-        $this->serializer = $serializer ?? new CompressingSerializeSerializer;
+        $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
         $this->sessionLifetime = $sessionLifetime;
         $this->storage = new ArrayCache;
     }
