@@ -6,12 +6,9 @@ use Amp\Sync\KeyedMutex;
 
 final class Driver
 {
-    /** @var KeyedMutex */
-    private $mutex;
-    /** @var Storage */
-    private $storage;
-    /** @var IdGenerator */
-    private $idGenerator;
+    private KeyedMutex $mutex;
+    private Storage $storage;
+    private IdGenerator $idGenerator;
 
     public function __construct(KeyedMutex $mutex, Storage $storage, ?IdGenerator $generator = null)
     {

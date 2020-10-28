@@ -2,30 +2,24 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Promise;
 use Amp\Redis\QueryExecutorFactory;
 use Amp\Redis\Redis;
 use Amp\Redis\SetOptions;
 use Amp\Serialization\CompressingSerializer;
 use Amp\Serialization\NativeSerializer;
 use Amp\Serialization\Serializer;
-use function Amp\call;
 
 final class RedisStorage implements Storage
 {
     public const DEFAULT_SESSION_LIFETIME = 3600;
 
-    /** @var Redis */
-    private $redis;
+    private Redis $redis;
 
-    /** @var string */
-    private $keyPrefix;
+    private string $keyPrefix;
 
-    /** @var int */
-    private $sessionLifetime;
+    private int $sessionLifetime;
 
-    /** @var Serializer */
-    private $serializer;
+    private Serializer $serializer;
 
     /**
      * @param QueryExecutorFactory $executorFactory
@@ -45,60 +39,56 @@ final class RedisStorage implements Storage
         $this->keyPrefix = $keyPrefix;
     }
 
-    public function write(string $id, array $data): Promise
+    public function write(string $id, array $data): void
     {
-        return call(function () use ($id, $data) {
-            if (empty($data)) {
-                try {
-                    yield $this->redis->delete($this->keyPrefix . $id);
-                } catch (\Throwable $error) {
-                    throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
-                }
-
-                return;
-            }
-
+        if (empty($data)) {
             try {
-                $serializedData = $this->serializer->serialize($data);
+                $this->redis->delete($this->keyPrefix . $id);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
+                throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
             }
 
-            try {
-                $options = (new SetOptions)->withTtl($this->sessionLifetime);
-                yield $this->redis->set($this->keyPrefix . $id, $serializedData, $options);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
-            }
-        });
+            return;
+        }
+
+        try {
+            $serializedData = $this->serializer->serialize($data);
+        } catch (\Throwable $error) {
+            throw new SessionException("Couldn't serialize data for session '{$id}'", 0, $error);
+        }
+
+        try {
+            $options = (new SetOptions)->withTtl($this->sessionLifetime);
+            $this->redis->set($this->keyPrefix . $id, $serializedData, $options);
+        } catch (\Throwable $error) {
+            throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
+        }
     }
 
-    public function read(string $id): Promise
+    public function read(string $id): array
     {
-        return call(function () use ($id) {
-            try {
-                $result = yield $this->redis->get($this->keyPrefix . $id);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
-            }
+        try {
+            $result = $this->redis->get($this->keyPrefix . $id);
+        } catch (\Throwable $error) {
+            throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+        }
 
-            if ($result === null) {
-                return [];
-            }
+        if ($result === null) {
+            return [];
+        }
 
-            try {
-                $data = $this->serializer->unserialize($result);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
-            }
+        try {
+            $data = $this->serializer->unserialize($result);
+        } catch (\Throwable $error) {
+            throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+        }
 
-            try {
-                yield $this->redis->expireIn($this->keyPrefix . $id, $this->sessionLifetime);
-            } catch (\Throwable $error) {
-                throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
-            }
+        try {
+            $this->redis->expireIn($this->keyPrefix . $id, $this->sessionLifetime);
+        } catch (\Throwable $error) {
+            throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
+        }
 
-            return $data;
-        });
+        return $data;
     }
 }

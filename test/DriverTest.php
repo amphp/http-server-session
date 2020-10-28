@@ -8,21 +8,20 @@ use Amp\Http\Server;
 use Amp\Http\Server\Session\Session;
 use Amp\Loop;
 use Amp\PHPUnit\AsyncTestCase;
-use Amp\Promise;
 use Amp\TimeoutException;
 use League\Uri\Http;
-use function Amp\call;
+use function Amp\async;
+use function Amp\await;
 use function Amp\Promise\timeout;
 
 abstract class DriverTest extends AsyncTestCase
 {
-    public function testNoCookieWithoutSessionData(): \Generator
+    public function testNoCookieWithoutSessionData(): void
     {
-        /** @var Server\Response $response */
-        $response = yield $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
             /** @var Session $session */
-            $session = yield $request->getAttribute(Session::class)->open();
-            yield $session->save();
+            $session = $request->getAttribute(Session::class)->open();
+            $session->save();
 
             return new Server\Response(200, [], 'hello world');
         });
@@ -30,14 +29,13 @@ abstract class DriverTest extends AsyncTestCase
         $this->assertNull($response->getHeader('set-cookie'));
     }
 
-    public function testCookieGetsCreated(): \Generator
+    public function testCookieGetsCreated(): void
     {
-        /** @var Server\Response $response */
-        $response = yield $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
             /** @var Session $session */
-            $session = yield $request->getAttribute(Session::class)->open();
+            $session = $request->getAttribute(Session::class)->open();
             $session->set('foo', 'bar');
-            yield $session->save();
+            $session->save();
 
             return new Server\Response(200, [], 'hello world');
         });
@@ -45,30 +43,28 @@ abstract class DriverTest extends AsyncTestCase
         $this->assertNotNull($response->getHeader('set-cookie'));
     }
 
-    public function testCircularReference(): \Generator
+    public function testCircularReference(): void
     {
         $this->setTimeout(1000);
 
         $driver = $this->createDriver();
 
         $session = $driver->create((new Server\Session\DefaultIdGenerator)->generate());
-        yield $session->open();
+        $session->open();
 
         \gc_collect_cycles();
         $session = null;
         $this->assertSame(0, \gc_collect_cycles());
     }
 
-    public function testPersistsData(): \Generator
+    public function testPersistsData(): void
     {
         $driver = $this->createDriver();
 
-        /** @var Server\Response $response */
-        $response = yield $this->respondWithSession($driver, static function (Server\Request $request) {
-            /** @var Session $session */
-            $session = yield $request->getAttribute(Session::class)->open();
+        $response = $this->respondWithSession($driver, static function (Server\Request $request) {
+            $session = $request->getAttribute(Session::class)->open();
             $session->set('foo', 'bar');
-            yield $session->save();
+            $session->save();
 
             return new Server\Response(200, [], 'hello world');
         });
@@ -77,19 +73,17 @@ abstract class DriverTest extends AsyncTestCase
         $this->assertNotNull($sessionCookie);
         $this->assertNotEmpty($sessionCookie->getValue());
 
-        /** @var Server\Response $response */
-        $response = yield $this->respondWithSession($driver, static function (Server\Request $request) {
-            /** @var Session $session */
-            $session = yield $request->getAttribute(Session::class)->read();
+        $response = $this->respondWithSession($driver, static function (Server\Request $request) {
+            $session = $request->getAttribute(Session::class)->read();
 
             return new Server\Response(200, [], $session->get('foo'));
         }, $sessionCookie->getValue());
 
         $payload = new Payload($response->getBody());
-        $this->assertSame('bar', yield $payload->buffer());
+        $this->assertSame('bar', $payload->buffer());
     }
 
-    public function testConcurrentLocking(): \Generator
+    public function testConcurrentLocking(): void
     {
         $sessionId = (new Server\Session\DefaultIdGenerator)->generate();
 
@@ -100,7 +94,7 @@ abstract class DriverTest extends AsyncTestCase
         $this->assertFalse($sessionA->isRead());
         $this->assertFalse($sessionA->isLocked());
 
-        yield $sessionA->open();
+        $sessionA->open();
 
         $this->assertTrue($sessionA->isRead());
         $this->assertTrue($sessionA->isLocked());
@@ -114,7 +108,7 @@ abstract class DriverTest extends AsyncTestCase
             });
 
             // should result in a timeout and never succeed, because there's already a lock
-            yield timeout($sessionB->open(), 1000);
+            await(timeout(async(fn() => $sessionB->open()), 1000));
         } finally {
             Loop::cancel($watcher);
 
@@ -129,24 +123,22 @@ abstract class DriverTest extends AsyncTestCase
         Server\Session\Driver $driver,
         callable $requestHandler,
         string $sessionId = null
-    ): Promise {
-        return call(function () use ($driver, $requestHandler, $sessionId) {
-            $requestHandler = Server\Middleware\stack(
-                new Server\RequestHandler\CallableRequestHandler($requestHandler),
-                new Server\Session\SessionMiddleware($driver)
-            );
+    ): Server\Response {
+        $requestHandler = Server\Middleware\stack(
+            new Server\RequestHandler\CallableRequestHandler($requestHandler),
+            new Server\Session\SessionMiddleware($driver)
+        );
 
-            $request = new Server\Request(
-                $this->createMock(Server\Driver\Client::class),
-                'GET',
-                Http::createFromString('/')
-            );
+        $request = new Server\Request(
+            $this->createMock(Server\Driver\Client::class),
+            'GET',
+            Http::createFromString('/')
+        );
 
-            if ($sessionId !== null) {
-                $request->setHeader('cookie', Server\Session\SessionMiddleware::DEFAULT_COOKIE_NAME . '=' . $sessionId);
-            }
+        if ($sessionId !== null) {
+            $request->setHeader('cookie', Server\Session\SessionMiddleware::DEFAULT_COOKIE_NAME . '=' . $sessionId);
+        }
 
-            return $requestHandler->handleRequest($request);
-        });
+        return $requestHandler->handleRequest($request);
     }
 }

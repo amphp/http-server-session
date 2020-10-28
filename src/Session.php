@@ -2,43 +2,36 @@
 
 namespace Amp\Http\Server\Session;
 
+use Amp\Deferred;
 use Amp\Promise;
 use Amp\Success;
 use Amp\Sync\KeyedMutex;
 use Amp\Sync\Lock;
-use function Amp\call;
+use function Amp\await;
 
 final class Session
 {
     private const STATUS_READ = 1;
     private const STATUS_LOCKED = 2;
 
-    /** @var KeyedMutex */
-    private $mutex;
+    private KeyedMutex $mutex;
 
-    /** @var Storage */
-    private $storage;
+    private Storage $storage;
 
-    /** @var IdGenerator */
-    private $generator;
+    private IdGenerator $generator;
 
-    /** @var string|null */
-    private $id;
+    private ?string $id;
 
     /** @var string[] Session data. */
-    private $data = [];
+    private array $data = [];
 
-    /** @var int */
-    private $status = 0;
+    private int $status = 0;
 
-    /** @var Promise|null */
-    private $pending;
+    private Promise $pending;
 
-    /** @var int */
-    private $openCount = 0;
+    private int $openCount = 0;
 
-    /** @var Lock|null */
-    private $lock;
+    private ?Lock $lock = null;
 
     public function __construct(KeyedMutex $mutex, Storage $storage, IdGenerator $generator, ?string $clientId)
     {
@@ -93,18 +86,18 @@ final class Session
     /**
      * Regenerates a session identifier.
      *
-     * @return Promise Resolving with the new session identifier.
+     * @return string Returns the new session identifier.
      */
-    public function regenerate(): Promise
+    public function regenerate(): string
     {
-        return $this->synchronized(function () {
+        return $this->synchronized(function (): string {
             $this->assertLocked();
 
             $newId = $this->generator->generate();
-            $newLock = yield $this->mutex->acquire($newId);
+            $newLock = $this->mutex->acquire($newId);
 
-            yield $this->storage->write($newId, $this->data);
-            yield $this->storage->write($this->id, []);
+            $this->storage->write($newId, $this->data);
+            $this->storage->write($this->id, []);
 
             $oldLock = $this->lock;
             $oldLock->release();
@@ -119,13 +112,13 @@ final class Session
     /**
      * Reads the session data without opening (locking) the session.
      *
-     * @return Promise Resolved with the session.
+     * @return self
      */
-    public function read(): Promise
+    public function read(): self
     {
-        return $this->synchronized(function () {
+        return $this->synchronized(function (): self {
             if ($this->id !== null) {
-                $this->data = yield $this->storage->read($this->id);
+                $this->data = $this->storage->read($this->id);
             }
 
             $this->status |= self::STATUS_READ;
@@ -137,22 +130,22 @@ final class Session
     /**
      * Opens the session for writing.
      *
-     * @return Promise Resolved with the session.
+     * @return self
      */
-    public function open(): Promise
+    public function open(): self
     {
-        return $this->synchronized(function () {
+        return $this->synchronized(function (): self {
             if ($this->id === null) {
                 $newId = $this->generator->generate();
-                $newLock = yield $this->mutex->acquire($newId);
+                $newLock = $this->mutex->acquire($newId);
 
                 $this->id = $newId;
                 $this->lock = $newLock;
 
                 $this->data = [];
             } elseif (!$this->isLocked()) {
-                $this->lock = yield $this->mutex->acquire($this->id);
-                $this->data = yield $this->storage->read($this->id);
+                $this->lock = $this->mutex->acquire($this->id);
+                $this->data = $this->storage->read($this->id);
             }
 
             ++$this->openCount;
@@ -167,15 +160,14 @@ final class Session
      * Saves the given data in the session.
      *
      * The session must be locked with either open() before calling this method.
-     *
-     * @return Promise
+
      */
-    public function save(): Promise
+    public function save(): void
     {
-        return $this->synchronized(function () {
+        $this->synchronized(function (): void {
             $this->assertLocked();
 
-            yield $this->storage->write($this->id, $this->data);
+            $this->storage->write($this->id, $this->data);
 
             if ($this->openCount === 1) {
                 $this->lock->release();
@@ -194,29 +186,25 @@ final class Session
     /**
      * Destroys and unlocks the session data.
      *
-     * @return Promise Resolving after success.
-     *
      * @throws \Error If the session has not been opened for writing.
      */
-    public function destroy(): Promise
+    public function destroy(): void
     {
-        return $this->synchronized(function () {
+        $this->synchronized(function (): void {
             $this->assertLocked();
 
             $this->data = [];
 
-            return $this->save();
+            $this->save();
         });
     }
 
     /**
      * Unlocks the session.
-     *
-     * @return Promise
      */
-    public function unlock(): Promise
+    public function unlock(): void
     {
-        return $this->synchronized(function () {
+        $this->synchronized(function (): void {
             if (!$this->isLocked()) {
                 return;
             }
@@ -233,12 +221,10 @@ final class Session
 
     /**
      * Releases all locks on the session.
-     *
-     * @return Promise
      */
-    public function unlockAll(): Promise
+    public function unlockAll(): void
     {
-        return $this->synchronized(function () {
+        $this->synchronized(function (): void {
             if (!$this->isLocked()) {
                 return;
             }
@@ -316,26 +302,18 @@ final class Session
         return $this->data;
     }
 
-    private function synchronized(callable $callable): Promise
+    private function synchronized(callable $callable): mixed
     {
-        $this->pending = $promise = call(function () use ($callable) {
-            try {
-                yield $this->pending;
-            } catch (\Throwable $e) {
-                // ignore
-            }
+        await($this->pending);
 
-            return call($callable);
-        });
+        $deferred = new Deferred;
+        $this->pending = $deferred->promise();
 
-        // Clean up circular reference to the session object
-        $promise->onResolve(function () use ($promise) {
-            if ($this->pending === $promise) {
-                $this->pending = new Success;
-            }
-        });
-
-        return $promise;
+        try {
+            return $callable();
+        } finally {
+            $deferred->resolve();
+        }
     }
 
     private function assertRead(): void

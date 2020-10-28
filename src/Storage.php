@@ -2,8 +2,6 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Promise;
-
 interface Storage
 {
     /**
@@ -11,17 +9,15 @@ interface Storage
      *
      * @param string $id The session identifier.
      *
-     * @return Promise Resolving to an array with current session data.
+     * @return array Current session data.
      */
-    public function read(string $id): Promise;
+    public function read(string $id): array;
 
     /**
      * Saves a session.
      *
      * @param string $id The session identifier.
      * @param mixed  $data Data to store.
-     *
-     * @return Promise Resolving after success.
      */
-    public function write(string $id, array $data): Promise;
+    public function write(string $id, array $data): void;
 }
