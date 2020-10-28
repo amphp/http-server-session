@@ -9,11 +9,9 @@ use Amp\Http\Server\Session\Session;
 use Amp\Loop;
 use Amp\PHPUnit\AsyncTestCase;
 use Amp\Promise;
-use Amp\Sync\Lock;
 use Amp\TimeoutException;
 use League\Uri\Http;
 use function Amp\call;
-use function Amp\delay;
 use function Amp\Promise\timeout;
 
 abstract class DriverTest extends AsyncTestCase
