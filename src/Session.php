@@ -166,20 +166,7 @@ final class Session
     {
         $this->synchronized(function (): void {
             $this->assertLocked();
-
-            $this->storage->write($this->id, $this->data);
-
-            if ($this->openCount === 1) {
-                $this->lock->release();
-                $this->lock = null;
-                $this->status &= ~self::STATUS_LOCKED;
-
-                if ($this->data === []) {
-                    $this->id = null;
-                }
-            }
-
-            --$this->openCount;
+            $this->unsynchronizedSave();
         });
     }
 
@@ -195,7 +182,7 @@ final class Session
 
             $this->data = [];
 
-            $this->save();
+            $this->unsynchronizedSave();
         });
     }
 
@@ -300,6 +287,22 @@ final class Session
         $this->assertRead();
 
         return $this->data;
+    }
+
+    private function unsynchronizedSave() {
+        $this->storage->write($this->id, $this->data);
+
+        if ($this->openCount === 1) {
+            $this->lock->release();
+            $this->lock = null;
+            $this->status &= ~self::STATUS_LOCKED;
+
+            if ($this->data === []) {
+                $this->id = null;
+            }
+        }
+
+        --$this->openCount;
     }
 
     private function synchronized(callable $callable): mixed
