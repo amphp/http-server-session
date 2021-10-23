@@ -3,11 +3,9 @@
 namespace Amp\Http\Server\Session;
 
 use Amp\Deferred;
-use Amp\Promise;
-use Amp\Success;
+use Amp\Future;
 use Amp\Sync\KeyedMutex;
 use Amp\Sync\Lock;
-use function Amp\await;
 
 final class Session
 {
@@ -27,7 +25,7 @@ final class Session
 
     private int $status = 0;
 
-    private Promise $pending;
+    private Future $pending;
 
     private int $openCount = 0;
 
@@ -38,7 +36,7 @@ final class Session
         $this->mutex = $mutex;
         $this->storage = $storage;
         $this->generator = $generator;
-        $this->pending = new Success;
+        $this->pending = Future::complete(null);
 
         if ($clientId === null || !$generator->validate($clientId)) {
             $this->id = null;
@@ -307,15 +305,15 @@ final class Session
 
     private function synchronized(callable $callable): mixed
     {
-        await($this->pending);
+        $this->pending->await();
 
         $deferred = new Deferred;
-        $this->pending = $deferred->promise();
+        $this->pending = $deferred->getFuture();
 
         try {
             return $callable();
         } finally {
-            $deferred->resolve();
+            $deferred->complete(null);
         }
     }
 
