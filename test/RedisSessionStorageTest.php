@@ -10,7 +10,7 @@ use Amp\Redis\Sync\RedisMutex;
 
 class RedisSessionStorageTest extends SessionStorageTest
 {
-    protected function createDriver(): SessionFactory
+    protected function createFactory(): SessionFactory
     {
         $executorFactory = new RemoteExecutorFactory(RedisConfig::fromUri($this->getUri()));
         $executor = $executorFactory->createQueryExecutor();

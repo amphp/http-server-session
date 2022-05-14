@@ -17,7 +17,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 {
     public function testNoCookieWithoutSessionData(): void
     {
-        $response = $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createFactory(), static function (Server\Request $request) {
             /** @var Session $session */
             $session = $request->getAttribute(Session::class)->open();
             $session->save();
@@ -30,7 +30,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
     public function testCookieGetsCreated(): void
     {
-        $response = $this->respondWithSession($this->createDriver(), static function (Server\Request $request) {
+        $response = $this->respondWithSession($this->createFactory(), static function (Server\Request $request) {
             /** @var Session $session */
             $session = $request->getAttribute(Session::class)->open();
             $session->set('foo', 'bar');
@@ -46,7 +46,7 @@ abstract class SessionStorageTest extends AsyncTestCase
     {
         $this->setTimeout(1000);
 
-        $driver = $this->createDriver();
+        $driver = $this->createFactory();
 
         $session = $driver->create((new Server\Session\DefaultSessionIdGenerator)->generate());
         $session->open();
@@ -58,7 +58,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
     public function testPersistsData(): void
     {
-        $driver = $this->createDriver();
+        $driver = $this->createFactory();
 
         $response = $this->respondWithSession($driver, static function (Server\Request $request) {
             $session = $request->getAttribute(Session::class)->open();
@@ -86,7 +86,7 @@ abstract class SessionStorageTest extends AsyncTestCase
     {
         $sessionId = (new Server\Session\DefaultSessionIdGenerator)->generate();
 
-        $driver = $this->createDriver();
+        $driver = $this->createFactory();
         $sessionA = $driver->create($sessionId);
         $sessionB = $driver->create($sessionId);
 
@@ -114,7 +114,7 @@ abstract class SessionStorageTest extends AsyncTestCase
         }
     }
 
-    abstract protected function createDriver(): Server\Session\SessionFactory;
+    abstract protected function createFactory(): Server\Session\SessionFactory;
 
     protected function respondWithSession(
         Server\Session\SessionFactory $driver,
