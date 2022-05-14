@@ -17,7 +17,7 @@ interface Storage
      * Saves a session.
      *
      * @param string $id The session identifier.
-     * @param mixed  $data Data to store.
+     * @param array<string, string> $data Data to store.
      */
     public function write(string $id, array $data): void;
 }

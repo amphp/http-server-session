@@ -14,9 +14,8 @@ final class DefaultIdGenerator implements IdGenerator
         return Base64UrlSafe::encode(\random_bytes(self::ID_BYTES));
     }
 
-    /** @inheritdoc */
     public function validate(string $id): bool
     {
-        return \preg_match(self::ID_REGEXP, $id);
+        return (bool) \preg_match(self::ID_REGEXP, $id);
     }
 }

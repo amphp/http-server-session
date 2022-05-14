@@ -90,10 +90,11 @@ final class Session
             $newLock = $this->mutex->acquire($newId);
 
             $this->storage->write($newId, $this->data);
+            \assert($this->id !== null);
             $this->storage->write($this->id, []);
 
             $oldLock = $this->lock;
-            $oldLock->release();
+            $oldLock?->release();
 
             $this->lock = $newLock;
             $this->id = $newId;
@@ -124,7 +125,9 @@ final class Session
     public function open(): self
     {
         return $this->synchronized(function (): self {
-            if ($this->id === null) {
+            $id = $this->id;
+
+            if ($id === null) {
                 $newId = $this->generator->generate();
                 $newLock = $this->mutex->acquire($newId);
 
@@ -133,8 +136,8 @@ final class Session
 
                 $this->data = [];
             } elseif (!$this->isLocked()) {
-                $this->lock = $this->mutex->acquire($this->id);
-                $this->data = $this->storage->read($this->id);
+                $this->lock = $this->mutex->acquire($id);
+                $this->data = $this->storage->read($id);
             }
 
             ++$this->openCount;
@@ -186,7 +189,7 @@ final class Session
             }
 
             if ($this->openCount === 1) {
-                $this->lock->release();
+                $this->lock?->release();
                 $this->lock = null;
                 $this->status &= ~self::STATUS_LOCKED;
             }
@@ -205,7 +208,7 @@ final class Session
                 return;
             }
 
-            $this->lock->release();
+            $this->lock?->release();
             $this->lock = null;
             $this->status &= ~self::STATUS_LOCKED;
 
@@ -226,7 +229,7 @@ final class Session
     /**
      * @throws \Error If the session has not been read.
      */
-    public function get(string $key)
+    public function get(string $key): ?string
     {
         $this->assertRead();
 
@@ -236,7 +239,7 @@ final class Session
     /**
      * @throws \Error If the session has not been opened for writing.
      */
-    public function set(string $key, $data): void
+    public function set(string $key, mixed $data): void
     {
         $this->assertLocked();
 
@@ -254,8 +257,6 @@ final class Session
     }
 
     /**
-     * @return mixed[]
-     *
      * @throws \Error If the session has not been read.
      */
     public function getData(): array
@@ -265,12 +266,16 @@ final class Session
         return $this->data;
     }
 
-    private function unsynchronizedSave()
+    private function unsynchronizedSave(): void
     {
+        if ($this->id === null) {
+            throw new \Error('Invalid session');
+        }
+
         $this->storage->write($this->id, $this->data);
 
         if ($this->openCount === 1) {
-            $this->lock->release();
+            $this->lock?->release();
             $this->lock = null;
             $this->status &= ~self::STATUS_LOCKED;
 
@@ -282,7 +287,7 @@ final class Session
         --$this->openCount;
     }
 
-    private function synchronized(callable $callable): mixed
+    private function synchronized(\Closure $closure): mixed
     {
         $this->pending->await();
 
@@ -290,7 +295,7 @@ final class Session
         $this->pending = $deferred->getFuture();
 
         try {
-            return $callable();
+            return $closure();
         } finally {
             $deferred->complete();
         }
