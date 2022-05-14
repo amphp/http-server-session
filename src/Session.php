@@ -2,7 +2,7 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Deferred;
+use Amp\DeferredFuture;
 use Amp\Future;
 use Amp\Sync\KeyedMutex;
 use Amp\Sync\Lock;
@@ -11,12 +11,6 @@ final class Session
 {
     private const STATUS_READ = 1;
     private const STATUS_LOCKED = 2;
-
-    private KeyedMutex $mutex;
-
-    private Storage $storage;
-
-    private IdGenerator $generator;
 
     private ?string $id;
 
@@ -31,12 +25,13 @@ final class Session
 
     private ?Lock $lock = null;
 
-    public function __construct(KeyedMutex $mutex, Storage $storage, IdGenerator $generator, ?string $clientId)
-    {
-        $this->mutex = $mutex;
-        $this->storage = $storage;
-        $this->generator = $generator;
-        $this->pending = Future::complete(null);
+    public function __construct(
+        private readonly KeyedMutex $mutex,
+        private readonly Storage $storage,
+        private readonly IdGenerator $generator,
+        ?string $clientId,
+    ) {
+        $this->pending = Future::complete();
 
         if ($clientId === null || !$generator->validate($clientId)) {
             $this->id = null;
@@ -287,7 +282,8 @@ final class Session
         return $this->data;
     }
 
-    private function unsynchronizedSave() {
+    private function unsynchronizedSave()
+    {
         $this->storage->write($this->id, $this->data);
 
         if ($this->openCount === 1) {
@@ -307,13 +303,13 @@ final class Session
     {
         $this->pending->await();
 
-        $deferred = new Deferred;
+        $deferred = new DeferredFuture();
         $this->pending = $deferred->getFuture();
 
         try {
             return $callable();
         } finally {
-            $deferred->complete(null);
+            $deferred->complete();
         }
     }
 

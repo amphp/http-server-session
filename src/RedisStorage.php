@@ -2,9 +2,9 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Redis\QueryExecutorFactory;
+use Amp\Redis\QueryExecutor;
 use Amp\Redis\Redis;
-use Amp\Redis\SetOptions;
+use Amp\Redis\RedisSetOptions;
 use Amp\Serialization\CompressingSerializer;
 use Amp\Serialization\NativeSerializer;
 use Amp\Serialization\Serializer;
@@ -13,30 +13,24 @@ final class RedisStorage implements Storage
 {
     public const DEFAULT_SESSION_LIFETIME = 3600;
 
-    private Redis $redis;
+    private readonly Redis $redis;
 
-    private string $keyPrefix;
-
-    private int $sessionLifetime;
-
-    private Serializer $serializer;
+    private readonly Serializer $serializer;
 
     /**
-     * @param QueryExecutorFactory $executorFactory
-     * @param Serializer|null      $serializer
-     * @param int                  $sessionLifetime
-     * @param string               $keyPrefix
+     * @param QueryExecutor $executor
+     * @param Serializer|null $serializer
+     * @param int $sessionLifetime
+     * @param string $keyPrefix
      */
     public function __construct(
-        QueryExecutorFactory $executorFactory,
+        QueryExecutor $executor,
         ?Serializer $serializer = null,
-        int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
-        string $keyPrefix = 'session:'
+        private readonly int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
+        private readonly string $keyPrefix = 'session:'
     ) {
-        $this->redis = new Redis($executorFactory->createQueryExecutor());
+        $this->redis = new Redis($executor);
         $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
-        $this->sessionLifetime = $sessionLifetime;
-        $this->keyPrefix = $keyPrefix;
     }
 
     public function write(string $id, array $data): void
@@ -58,7 +52,7 @@ final class RedisStorage implements Storage
         }
 
         try {
-            $options = (new SetOptions)->withTtl($this->sessionLifetime);
+            $options = (new RedisSetOptions)->withTtl($this->sessionLifetime);
             $this->redis->set($this->keyPrefix . $id, $serializedData, $options);
         } catch (\Throwable $error) {
             throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);

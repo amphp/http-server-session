@@ -2,7 +2,7 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Cache\ArrayCache;
+use Amp\Cache\LocalCache;
 use Amp\Serialization\CompressingSerializer;
 use Amp\Serialization\NativeSerializer;
 use Amp\Serialization\Serializer;
@@ -16,15 +16,15 @@ final class InMemoryStorage implements Storage
 {
     public const DEFAULT_SESSION_LIFETIME = 3600;
 
-    private ArrayCache $storage;
-    private Serializer $serializer;
-    private int $sessionLifetime;
+    private readonly LocalCache $storage;
+    private readonly Serializer $serializer;
 
-    public function __construct(?Serializer $serializer = null, int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME)
-    {
+    public function __construct(
+        ?Serializer $serializer = null,
+        private readonly int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
+    ) {
         $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
-        $this->sessionLifetime = $sessionLifetime;
-        $this->storage = new ArrayCache;
+        $this->storage = new LocalCache;
     }
 
     public function write(string $id, array $data): void

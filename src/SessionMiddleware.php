@@ -14,50 +14,40 @@ final class SessionMiddleware implements Middleware
 {
     public const DEFAULT_COOKIE_NAME = 'session';
 
-    private Driver $driver;
+    private readonly string $cookieName;
 
-    private string $cookieName;
+    private readonly CookieAttributes $cookieAttributes;
 
-    private CookieAttributes $cookieAttributes;
-
-    private string $requestAttribute;
+    private readonly string $requestAttribute;
 
     /**
-     * @param Driver                $driver
      * @param CookieAttributes|null $cookieAttributes Attribute set for session cookies.
-     * @param string                $cookieName Name of session identifier cookie.
-     * @param string                $requestAttribute Name of the request attribute being used to store the session.
+     * @param string $cookieName Name of session identifier cookie.
+     * @param string $requestAttribute Name of the request attribute being used to store the session.
      */
     public function __construct(
-        Driver $driver,
+        private readonly Driver $driver,
         CookieAttributes $cookieAttributes = null,
         string $cookieName = self::DEFAULT_COOKIE_NAME,
         string $requestAttribute = Session::class
     ) {
-        $this->driver = $driver;
         $this->cookieName = $cookieName;
         $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default()->withSameSite(CookieAttributes::SAMESITE_LAX);
         $this->requestAttribute = $requestAttribute;
     }
 
-    /**
-     * @param Request        $request
-     * @param RequestHandler $responder Request responder.
-     *
-     * @return Response
-     */
-    public function handleRequest(Request $request, RequestHandler $responder): Response
+    public function handleRequest(Request $request, RequestHandler $requestHandler): Response
     {
         $cookie = $request->getCookie($this->cookieName);
 
-        $originalId = $cookie ? $cookie->getValue() : null;
+        $originalId = $cookie?->getValue();
         $session = $this->driver->create($originalId);
 
         $request->setAttribute($this->requestAttribute, $session);
 
-        $response = $responder->handleRequest($request);
+        $response = $requestHandler->handleRequest($request);
 
-        $response->onDispose([$session, 'unlockAll']);
+        $response->onDispose($session->unlockAll(...));
 
         $id = $session->getId();
 

@@ -6,14 +6,13 @@ use Amp\Sync\KeyedMutex;
 
 final class Driver
 {
-    private KeyedMutex $mutex;
-    private Storage $storage;
-    private IdGenerator $idGenerator;
+    private readonly IdGenerator $idGenerator;
 
-    public function __construct(KeyedMutex $mutex, Storage $storage, ?IdGenerator $generator = null)
-    {
-        $this->mutex = $mutex;
-        $this->storage = $storage;
+    public function __construct(
+        private readonly KeyedMutex $mutex,
+        private readonly Storage $storage,
+        ?IdGenerator $generator = null,
+    ) {
         $this->idGenerator = $generator ?? new DefaultIdGenerator;
     }
 

@@ -3,16 +3,15 @@
 namespace Amp\Http\Server\Session\Test;
 
 use Amp\ByteStream\Payload;
+use Amp\CancelledException;
 use Amp\Http\Cookie\ResponseCookie;
 use Amp\Http\Server;
 use Amp\Http\Server\Session\Session;
-use Amp\Loop;
 use Amp\PHPUnit\AsyncTestCase;
-use Amp\TimeoutException;
+use Amp\TimeoutCancellation;
 use League\Uri\Http;
+use Revolt\EventLoop;
 use function Amp\async;
-use function Amp\await;
-use function Amp\Promise\timeout;
 
 abstract class DriverTest extends AsyncTestCase
 {
@@ -99,18 +98,16 @@ abstract class DriverTest extends AsyncTestCase
         $this->assertTrue($sessionA->isRead());
         $this->assertTrue($sessionA->isLocked());
 
-        $this->expectException(TimeoutException::class);
+        $this->expectException(CancelledException::class);
+
+        // dummy watcher to avoid "Event loop terminated without resuming the current suspension"
+        $watcher = EventLoop::delay(2, static fn () => null);
 
         try {
-            // dummy watcher to avoid "Loop stopped without resolving the promise"
-            $watcher = Loop::delay(2000, static function () {
-                // do nothing
-            });
-
             // should result in a timeout and never succeed, because there's already a lock
-            await(timeout(async(fn() => $sessionB->open()), 1000));
+            async(fn () => $sessionB->open())->await(new TimeoutCancellation(1));
         } finally {
-            Loop::cancel($watcher);
+            EventLoop::cancel($watcher);
 
             $sessionA->unlock();
             $sessionB->unlock();
@@ -125,7 +122,7 @@ abstract class DriverTest extends AsyncTestCase
         string $sessionId = null
     ): Server\Response {
         $requestHandler = Server\Middleware\stack(
-            new Server\RequestHandler\CallableRequestHandler($requestHandler),
+            new Server\RequestHandler\ClosureRequestHandler($requestHandler),
             new Server\Session\SessionMiddleware($driver)
         );
 
