@@ -13,7 +13,7 @@ use League\Uri\Http;
 use Revolt\EventLoop;
 use function Amp\async;
 
-abstract class DriverTest extends AsyncTestCase
+abstract class SessionStorageTest extends AsyncTestCase
 {
     public function testNoCookieWithoutSessionData(): void
     {
@@ -48,7 +48,7 @@ abstract class DriverTest extends AsyncTestCase
 
         $driver = $this->createDriver();
 
-        $session = $driver->create((new Server\Session\DefaultIdGenerator)->generate());
+        $session = $driver->create((new Server\Session\DefaultSessionIdGenerator)->generate());
         $session->open();
 
         \gc_collect_cycles();
@@ -84,7 +84,7 @@ abstract class DriverTest extends AsyncTestCase
 
     public function testConcurrentLocking(): void
     {
-        $sessionId = (new Server\Session\DefaultIdGenerator)->generate();
+        $sessionId = (new Server\Session\DefaultSessionIdGenerator)->generate();
 
         $driver = $this->createDriver();
         $sessionA = $driver->create($sessionId);
@@ -114,10 +114,10 @@ abstract class DriverTest extends AsyncTestCase
         }
     }
 
-    abstract protected function createDriver(): Server\Session\Driver;
+    abstract protected function createDriver(): Server\Session\SessionFactory;
 
     protected function respondWithSession(
-        Server\Session\Driver $driver,
+        Server\Session\SessionFactory $driver,
         callable $requestHandler,
         string $sessionId = null
     ): Server\Response {

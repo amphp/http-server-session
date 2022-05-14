@@ -27,8 +27,8 @@ final class Session
 
     public function __construct(
         private readonly KeyedMutex $mutex,
-        private readonly Storage $storage,
-        private readonly IdGenerator $generator,
+        private readonly SessionStorage $storage,
+        private readonly SessionIdGenerator $generator,
         ?string $clientId,
     ) {
         $this->pending = Future::complete();

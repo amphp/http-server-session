@@ -2,10 +2,10 @@
 
 namespace Amp\Http\Server\Session;
 
-interface IdGenerator
+interface SessionIdGenerator
 {
     /**
-     * @return string A URL-safe session ID.
+     * @return non-empty-string A URL-safe session ID.
      */
     public function generate(): string;
 

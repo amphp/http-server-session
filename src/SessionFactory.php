@@ -4,16 +4,16 @@ namespace Amp\Http\Server\Session;
 
 use Amp\Sync\KeyedMutex;
 
-final class Driver
+final class SessionFactory
 {
-    private readonly IdGenerator $idGenerator;
+    private readonly SessionIdGenerator $idGenerator;
 
     public function __construct(
         private readonly KeyedMutex $mutex,
-        private readonly Storage $storage,
-        ?IdGenerator $generator = null,
+        private readonly SessionStorage $storage,
+        ?SessionIdGenerator $generator = null,
     ) {
-        $this->idGenerator = $generator ?? new DefaultIdGenerator;
+        $this->idGenerator = $generator ?? new DefaultSessionIdGenerator;
     }
 
     public function create(?string $clientId): Session

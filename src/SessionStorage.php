@@ -2,7 +2,7 @@
 
 namespace Amp\Http\Server\Session;
 
-interface Storage
+interface SessionStorage
 {
     /**
      * Reads the session contents.

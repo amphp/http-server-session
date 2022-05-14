@@ -2,20 +2,20 @@
 
 namespace Amp\Http\Server\Session\Test;
 
-use Amp\Http\Server\Session\Driver;
-use Amp\Http\Server\Session\RedisStorage;
+use Amp\Http\Server\Session\RedisSessionStorage;
+use Amp\Http\Server\Session\SessionFactory;
 use Amp\Redis\RedisConfig;
 use Amp\Redis\RemoteExecutorFactory;
 use Amp\Redis\Sync\RedisMutex;
 
-class RedisDriverTest extends DriverTest
+class RedisSessionStorageTest extends SessionStorageTest
 {
-    protected function createDriver(): Driver
+    protected function createDriver(): SessionFactory
     {
         $executorFactory = new RemoteExecutorFactory(RedisConfig::fromUri($this->getUri()));
         $executor = $executorFactory->createQueryExecutor();
 
-        return new Driver(new RedisMutex($executor), new RedisStorage($executor));
+        return new SessionFactory(new RedisMutex($executor), new RedisSessionStorage($executor));
     }
 
     final protected function getUri(): string

@@ -26,7 +26,7 @@ final class SessionMiddleware implements Middleware
      * @param string $requestAttribute Name of the request attribute being used to store the session.
      */
     public function __construct(
-        private readonly Driver $driver,
+        private readonly SessionFactory $factory,
         CookieAttributes $cookieAttributes = null,
         string $cookieName = self::DEFAULT_COOKIE_NAME,
         string $requestAttribute = Session::class
@@ -41,7 +41,7 @@ final class SessionMiddleware implements Middleware
         $cookie = $request->getCookie($this->cookieName);
 
         $originalId = $cookie?->getValue();
-        $session = $this->driver->create($originalId);
+        $session = $this->factory->create($originalId);
 
         $request->setAttribute($this->requestAttribute, $session);
 
