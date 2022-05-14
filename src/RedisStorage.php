@@ -18,8 +18,6 @@ final class RedisStorage implements Storage
     private readonly Serializer $serializer;
 
     /**
-     * @param QueryExecutor $executor
-     * @param Serializer|null $serializer
      * @param int $sessionLifetime
      * @param string $keyPrefix
      */

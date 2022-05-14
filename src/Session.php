@@ -104,8 +104,6 @@ final class Session
 
     /**
      * Reads the session data without opening (locking) the session.
-     *
-     * @return self
      */
     public function read(): self
     {
@@ -122,8 +120,6 @@ final class Session
 
     /**
      * Opens the session for writing.
-     *
-     * @return self
      */
     public function open(): self
     {
@@ -218,10 +214,6 @@ final class Session
     }
 
     /**
-     * @param string $key
-     *
-     * @return bool
-     *
      * @throws \Error If the session has not been read.
      */
     public function has(string $key): bool
@@ -232,10 +224,6 @@ final class Session
     }
 
     /**
-     * @param string $key
-     *
-     * @return mixed
-     *
      * @throws \Error If the session has not been read.
      */
     public function get(string $key)
@@ -246,9 +234,6 @@ final class Session
     }
 
     /**
-     * @param string $key
-     * @param mixed  $data
-     *
      * @throws \Error If the session has not been opened for writing.
      */
     public function set(string $key, $data): void
@@ -259,8 +244,6 @@ final class Session
     }
 
     /**
-     * @param string $key
-     *
      * @throws \Error If the session has not been opened for writing.
      */
     public function unset(string $key): void

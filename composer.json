@@ -41,7 +41,7 @@
         "amphp/redis": "^2",
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
-        "amphp/php-cs-fixer-config": "dev-master",
+        "amphp/php-cs-fixer-config": "^2",
         "league/uri": "^6"
     },
     "minimum-stability": "dev",
