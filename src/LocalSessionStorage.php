@@ -10,7 +10,7 @@ use Amp\Serialization\Serializer;
 /**
  * This driver saves all sessions in memory, mainly for local development purposes.
  *
- * Locking happens via LocalMutex, so it won't work correctly with multiple processes.
+ * It won't work correctly with multiple processes.
  */
 final class LocalSessionStorage implements SessionStorage
 {
