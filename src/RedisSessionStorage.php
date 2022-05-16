@@ -17,6 +17,8 @@ final class RedisSessionStorage implements SessionStorage
 
     private readonly Serializer $serializer;
 
+    private readonly RedisSetOptions $setOptions;
+
     /**
      * @param int $sessionLifetime
      * @param string $keyPrefix
@@ -29,6 +31,7 @@ final class RedisSessionStorage implements SessionStorage
     ) {
         $this->redis = new Redis($executor);
         $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
+        $this->setOptions = (new RedisSetOptions)->withTtl($this->sessionLifetime);
     }
 
     public function write(string $id, array $data): void
@@ -50,8 +53,7 @@ final class RedisSessionStorage implements SessionStorage
         }
 
         try {
-            $options = (new RedisSetOptions)->withTtl($this->sessionLifetime);
-            $this->redis->set($this->keyPrefix . $id, $serializedData, $options);
+            $this->redis->set($this->keyPrefix . $id, $serializedData, $this->setOptions);
         } catch (\Throwable $error) {
             throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
         }
