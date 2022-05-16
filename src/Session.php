@@ -152,7 +152,6 @@ final class Session
      * Saves the given data in the session.
      *
      * The session must be locked with either open() before calling this method.
-
      */
     public function save(): void
     {
