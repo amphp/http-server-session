@@ -19,10 +19,6 @@ final class RedisSessionStorage implements SessionStorage
 
     private readonly RedisSetOptions $setOptions;
 
-    /**
-     * @param int $sessionLifetime
-     * @param string $keyPrefix
-     */
     public function __construct(
         QueryExecutor $executor,
         ?Serializer $serializer = null,
