@@ -57,7 +57,7 @@ final class LocalSessionStorage implements SessionStorage
         try {
             $result = $this->storage->get($id);
         } catch (\Throwable $error) {
-            throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+            throw new SessionException("Couldn't read data for session '{$id}'", 0, $error);
         }
 
         if ($result === null) {
@@ -67,7 +67,7 @@ final class LocalSessionStorage implements SessionStorage
         try {
             $data = $this->serializer->unserialize($result);
         } catch (\Throwable $error) {
-            throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+            throw new SessionException("Couldn't read data for session '{$id}'", 0, $error);
         }
 
         try {

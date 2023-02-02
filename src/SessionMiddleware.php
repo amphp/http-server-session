@@ -14,26 +14,22 @@ final class SessionMiddleware implements Middleware
 {
     public const DEFAULT_COOKIE_NAME = 'session';
 
-    private readonly string $cookieName;
-
     private readonly CookieAttributes $cookieAttributes;
-
-    private readonly string $requestAttribute;
 
     /**
      * @param CookieAttributes|null $cookieAttributes Attribute set for session cookies.
-     * @param string $cookieName Name of session identifier cookie.
-     * @param string $requestAttribute Name of the request attribute being used to store the session.
+     * @param non-empty-string $cookieName Name of session identifier cookie.
+     * @param non-empty-string $requestAttribute Name of the request attribute being used to store the session.
+     *      Defaults to {@see Session::class}.
      */
     public function __construct(
         private readonly SessionFactory $factory,
         CookieAttributes $cookieAttributes = null,
-        string $cookieName = self::DEFAULT_COOKIE_NAME,
-        string $requestAttribute = Session::class
+        private readonly string $cookieName = self::DEFAULT_COOKIE_NAME,
+        private readonly string $requestAttribute = Session::class
     ) {
-        $this->cookieName = $cookieName;
-        $this->cookieAttributes = $cookieAttributes ?? CookieAttributes::default()->withSameSite(CookieAttributes::SAMESITE_LAX);
-        $this->requestAttribute = $requestAttribute;
+        $this->cookieAttributes = $cookieAttributes
+            ?? CookieAttributes::default()->withSameSite(CookieAttributes::SAMESITE_LAX);
     }
 
     public function handleRequest(Request $request, RequestHandler $requestHandler): Response
@@ -65,27 +61,19 @@ final class SessionMiddleware implements Middleware
             $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
         }
 
-        $cacheControl = Http\parseFieldValueComponents($response, 'cache-control');
+        $cacheControl = Http\parseFieldValueComponents($response, 'cache-control') ?? [];
 
-        if (empty($cacheControl)) {
-            $response->setHeader('cache-control', 'private');
-        } else {
-            $tokens = [];
-            foreach ($cacheControl as [$key, $value]) {
-                switch (\strtolower($key)) {
-                    case 'public':
-                    case 'private':
-                        continue 2;
-
-                    default:
-                        $tokens[] = $value === '' ? $key : $key . '=' . $value;
-                }
-            }
-
-            $tokens[] = 'private';
-
-            $response->setHeader('cache-control', \implode(',', $tokens));
+        $tokens = [];
+        foreach ($cacheControl as [$key, $value]) {
+            $tokens[] = match (\strtolower($key)) {
+                'public', 'private' => null,
+                default => $value === '' ? $key : $key . '=' . $value,
+            };
         }
+
+        $tokens[] = 'private';
+
+        $response->setHeader('cache-control', \implode(',', \array_filter($tokens)));
 
         return $response;
     }

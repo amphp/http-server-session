@@ -14,7 +14,7 @@ final class Session
 
     private ?string $id;
 
-    /** @var string[] Session data. */
+    /** @var array<string, string> Session data. */
     private array $data = [];
 
     private int $status = 0;
