@@ -67,7 +67,7 @@ final class InMemoryStorage implements Storage
             try {
                 $result = yield $this->storage->get($id);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+                throw new SessionException("Couldn't read data for session '{$id}'", 0, $error);
             }
 
             if ($result === null) {
@@ -77,7 +77,7 @@ final class InMemoryStorage implements Storage
             try {
                 $data = $this->serializer->unserialize($result);
             } catch (\Throwable $error) {
-                throw new SessionException("Couldn't read data for session '${id}'", 0, $error);
+                throw new SessionException("Couldn't read data for session '{$id}'", 0, $error);
             }
 
             try {
