@@ -16,6 +16,6 @@ final class SessionFactory
 
     public function create(?string $clientId): Session
     {
-        return new Session($this->mutex, $this->storage, $this->idGenerator, $clientId);
+        return new SynchronizedSession($this->mutex, $this->storage, $this->idGenerator, $clientId);
     }
 }
