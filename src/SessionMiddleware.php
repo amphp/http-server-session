@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Amp\Http\Server\Session;
 
@@ -65,7 +65,7 @@ final class SessionMiddleware implements Middleware
 
         $tokens = [];
         foreach ($cacheControl as [$key, $value]) {
-            assert(is_string($key));
+            \assert($key !== null);
             $tokens[] = match (\strtolower($key)) {
                 'public', 'private' => null,
                 default => $value === '' ? $key : $key . '=' . $value,
