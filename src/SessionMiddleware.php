@@ -65,6 +65,7 @@ final class SessionMiddleware implements Middleware
 
         $tokens = [];
         foreach ($cacheControl as [$key, $value]) {
+            assert(is_string($key));
             $tokens[] = match (\strtolower($key)) {
                 'public', 'private' => null,
                 default => $value === '' ? $key : $key . '=' . $value,
