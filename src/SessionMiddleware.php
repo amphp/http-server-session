@@ -61,7 +61,7 @@ final class SessionMiddleware implements Middleware
             $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
         }
 
-        $cacheControl = Http\parseFieldValueComponents($response, 'cache-control') ?? [];
+        $cacheControl = Http\parseMultipleHeaderFields($response, 'cache-control') ?? [];
 
         $tokens = [];
         foreach ($cacheControl as [$key, $value]) {
