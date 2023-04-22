@@ -30,7 +30,7 @@
     "require": {
         "php": ">=8.1",
         "amphp/amp": "^3",
-        "amphp/http": "^2-dev",
+        "amphp/http": "^2",
         "amphp/http-server": "^3",
         "amphp/sync": "^2",
         "amphp/serialization": "^1",
@@ -45,7 +45,7 @@
         "league/uri": "^6",
         "psalm/phar": "^4.23"
     },
-    "minimum-stability": "dev",
+    "minimum-stability": "beta",
     "prefer-stable": true,
     "suggest": {
         "amphp/redis": "Allows storing session data in Redis"
