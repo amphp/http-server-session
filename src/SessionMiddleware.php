@@ -61,12 +61,11 @@ final class SessionMiddleware implements Middleware
             $response->setCookie(new ResponseCookie($this->cookieName, $id, $this->cookieAttributes));
         }
 
-        $cacheControl = Http\parseMultipleHeaderFields($response, 'cache-control') ?? [];
+        $cacheControl = \array_merge(...Http\parseMultipleHeaderFields($response, 'cache-control') ?? []);
 
         $tokens = [];
-        foreach ($cacheControl as [$key, $value]) {
-            \assert($key !== null);
-            $tokens[] = match (\strtolower($key)) {
+        foreach ($cacheControl as $key => $value) {
+            $tokens[] = match ($key) {
                 'public', 'private' => null,
                 default => $value === '' ? $key : $key . '=' . $value,
             };
@@ -74,7 +73,7 @@ final class SessionMiddleware implements Middleware
 
         $tokens[] = 'private';
 
-        $response->setHeader('cache-control', \implode(',', \array_filter($tokens)));
+        $response->setHeader('cache-control', \implode(', ', \array_filter($tokens)));
 
         return $response;
     }

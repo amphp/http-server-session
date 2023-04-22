@@ -5,7 +5,10 @@ namespace Amp\Http\Server\Session\Test;
 use Amp\ByteStream\Payload;
 use Amp\CancelledException;
 use Amp\Http\Cookie\ResponseCookie;
+use Amp\Http\HttpStatus;
 use Amp\Http\Server;
+use Amp\Http\Server\Request;
+use Amp\Http\Server\Response;
 use Amp\Http\Server\Session\Session;
 use Amp\PHPUnit\AsyncTestCase;
 use Amp\TimeoutCancellation;
@@ -22,10 +25,10 @@ abstract class SessionStorageTest extends AsyncTestCase
             $session = $request->getAttribute(Session::class)->open();
             $session->save();
 
-            return new Server\Response(200, [], 'hello world');
+            return new Server\Response(200, body: 'hello world');
         });
 
-        $this->assertNull($response->getHeader('set-cookie'));
+        self::assertNull($response->getHeader('set-cookie'));
     }
 
     public function testCookieGetsCreated(): void
@@ -36,15 +39,17 @@ abstract class SessionStorageTest extends AsyncTestCase
             $session->set('foo', 'bar');
             $session->save();
 
-            return new Server\Response(200, [], 'hello world');
+            return new Server\Response(HttpStatus::OK, ['cache-control' => 'public, max-age=604800'], 'hello world');
         });
 
-        $this->assertNotNull($response->getHeader('set-cookie'));
+        self::assertNotNull($response->getHeader('set-cookie'));
+        self::assertStringContainsString('max-age=604800', $response->getHeader('cache-control'));
+        self::assertStringContainsString('private', $response->getHeader('cache-control'));
     }
 
     public function testCircularReference(): void
     {
-        $this->setTimeout(1000);
+        $this->setTimeout(1);
 
         $driver = $this->createFactory();
 
@@ -53,7 +58,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
         \gc_collect_cycles();
         $session = null;
-        $this->assertSame(0, \gc_collect_cycles());
+        self::assertSame(0, \gc_collect_cycles());
     }
 
     public function testPersistsData(): void
@@ -65,21 +70,21 @@ abstract class SessionStorageTest extends AsyncTestCase
             $session->set('foo', 'bar');
             $session->save();
 
-            return new Server\Response(200, [], 'hello world');
+            return new Server\Response(HttpStatus::OK, [], 'hello world');
         });
 
         $sessionCookie = ResponseCookie::fromHeader($response->getHeader('set-cookie'));
-        $this->assertNotNull($sessionCookie);
-        $this->assertNotEmpty($sessionCookie->getValue());
+        self::assertNotNull($sessionCookie);
+        self::assertNotEmpty($sessionCookie->getValue());
 
         $response = $this->respondWithSession($driver, static function (Server\Request $request) {
             $session = $request->getAttribute(Session::class)->read();
 
-            return new Server\Response(200, [], $session->get('foo'));
+            return new Server\Response(HttpStatus::OK, body: $session->get('foo'));
         }, $sessionCookie->getValue());
 
         $payload = new Payload($response->getBody());
-        $this->assertSame('bar', $payload->buffer());
+        self::assertSame('bar', $payload->buffer());
     }
 
     public function testConcurrentLocking(): void
@@ -90,13 +95,13 @@ abstract class SessionStorageTest extends AsyncTestCase
         $sessionA = $driver->create($sessionId);
         $sessionB = $driver->create($sessionId);
 
-        $this->assertFalse($sessionA->isRead());
-        $this->assertFalse($sessionA->isLocked());
+        self::assertFalse($sessionA->isRead());
+        self::assertFalse($sessionA->isLocked());
 
         $sessionA->open();
 
-        $this->assertTrue($sessionA->isRead());
-        $this->assertTrue($sessionA->isLocked());
+        self::assertTrue($sessionA->isRead());
+        self::assertTrue($sessionA->isLocked());
 
         $this->expectException(CancelledException::class);
 
@@ -116,9 +121,12 @@ abstract class SessionStorageTest extends AsyncTestCase
 
     abstract protected function createFactory(): Server\Session\SessionFactory;
 
+    /**
+     * @param \Closure(Request):Response $requestHandler
+     */
     protected function respondWithSession(
         Server\Session\SessionFactory $driver,
-        callable $requestHandler,
+        \Closure $requestHandler,
         string $sessionId = null
     ): Server\Response {
         $requestHandler = Server\Middleware\stack(
