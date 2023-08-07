@@ -129,7 +129,7 @@ abstract class SessionStorageTest extends AsyncTestCase
         \Closure $requestHandler,
         string $sessionId = null
     ): Server\Response {
-        $requestHandler = Server\Middleware\stack(
+        $requestHandler = Server\Middleware\stackMiddleware(
             new Server\RequestHandler\ClosureRequestHandler($requestHandler),
             new Server\Session\SessionMiddleware($driver)
         );
