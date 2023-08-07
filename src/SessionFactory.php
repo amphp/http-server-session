@@ -4,7 +4,5 @@ namespace Amp\Http\Server\Session;
 
 interface SessionFactory
 {
-
     public function create(?string $clientId): Session;
-
 }
