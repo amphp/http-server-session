@@ -4,7 +4,6 @@ namespace Amp\Http\Server\Session;
 
 interface Session
 {
-
     /**
      * @return string|null Session identifier.
      */
@@ -79,12 +78,18 @@ interface Session
      */
     public function unlockAll(): void;
 
+    /**
+     * @throws \Error If the session has not been read.
+     */
     public function has(string $key): bool;
 
-    public function get(string $key): mixed;
+    /**
+     * @throws \Error If the session has not been read.
+     */
+    public function get(string $key): ?string;
 
     /**
-     * @throws \Error If the session has not been locked for writing.
+     * @throws \Error If the session has not been opened for writing.
      */
     public function set(string $key, mixed $data): void;
 

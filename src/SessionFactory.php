@@ -4,5 +4,8 @@ namespace Amp\Http\Server\Session;
 
 interface SessionFactory
 {
+    /**
+     * @param string|null $clientId Session cookie value.
+     */
     public function create(?string $clientId): Session;
 }
