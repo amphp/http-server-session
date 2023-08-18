@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-namespace Amp\Http\Server\Session\Test;
+namespace Amp\Http\Server\Session;
 
-use Amp\Http\Server\Session\RedisSessionStorage;
-use Amp\Http\Server\Session\SessionFactory;
 use Amp\Redis\RedisConfig;
 use Amp\Redis\RemoteExecutorFactory;
 use Amp\Redis\Sync\RedisMutex;

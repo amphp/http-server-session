@@ -24,7 +24,7 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Amp\\Http\\Server\\Session\\Test\\": "test"
+            "Amp\\Http\\Server\\Session\\": "test"
         }
     },
     "require": {

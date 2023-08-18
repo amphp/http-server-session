@@ -1,9 +1,7 @@
 <?php declare(strict_types=1);
 
-namespace Amp\Http\Server\Session\Test;
+namespace Amp\Http\Server\Session;
 
-use Amp\Http\Server\Session\LocalSessionStorage;
-use Amp\Http\Server\Session\SessionFactory;
 use Amp\Sync\LocalKeyedMutex;
 
 class LocalSessionStorageTest extends SessionStorageTest

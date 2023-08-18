@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Amp\Http\Server\Session\Test;
+namespace Amp\Http\Server\Session;
 
 use Amp\ByteStream\Payload;
 use Amp\CancelledException;
@@ -9,7 +9,6 @@ use Amp\Http\HttpStatus;
 use Amp\Http\Server;
 use Amp\Http\Server\Request;
 use Amp\Http\Server\Response;
-use Amp\Http\Server\Session\Session;
 use Amp\PHPUnit\AsyncTestCase;
 use Amp\TimeoutCancellation;
 use League\Uri\Http;
