@@ -6,7 +6,9 @@ use ParagonIE\ConstantTime\Base64UrlSafe;
 
 final class Base64UrlSessionIdGenerator implements SessionIdGenerator
 {
+    /** @var non-empty-string */
     private readonly string $regex;
+    /** @var positive-int */
     private readonly int $bytes;
 
     public function __construct(int $length = 48)
@@ -16,7 +18,7 @@ final class Base64UrlSessionIdGenerator implements SessionIdGenerator
         }
 
         // divisible by four to not waste chars with "=" and simplify regexp.
-        $this->bytes = $length / 4 * 3;
+        $this->bytes = (int) ($length / 4 * 3);
         $this->regex = '/^[A-Za-z0-9_\-]{' . $length . '}$/';
 
         if ($this->bytes < 16) {
