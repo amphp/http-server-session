@@ -10,6 +10,8 @@ interface SessionStorage
      * @param string $id The session identifier.
      *
      * @return array Current session data.
+     *
+     * @throws SessionException
      */
     public function read(string $id): array;
 
@@ -18,6 +20,8 @@ interface SessionStorage
      *
      * @param string $id The session identifier.
      * @param array<string, string> $data Data to store.
+     *
+     * @throws SessionException
      */
     public function write(string $id, array $data): void;
 }
