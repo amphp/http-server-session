@@ -52,7 +52,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
         $driver = $this->createFactory();
 
-        $session = $driver->create((new Server\Session\DefaultSessionIdGenerator)->generate());
+        $session = $driver->create((new Server\Session\Base64UrlSessionIdGenerator)->generate());
         $session->open();
 
         \gc_collect_cycles();
@@ -88,7 +88,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
     public function testConcurrentLocking(): void
     {
-        $sessionId = (new Server\Session\DefaultSessionIdGenerator)->generate();
+        $sessionId = (new Server\Session\Base64UrlSessionIdGenerator)->generate();
 
         $driver = $this->createFactory();
         $sessionA = $driver->create($sessionId);

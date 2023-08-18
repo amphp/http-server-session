@@ -9,7 +9,7 @@ final class SessionFactory
     public function __construct(
         private readonly KeyedMutex $mutex,
         private readonly SessionStorage $storage,
-        private readonly SessionIdGenerator $idGenerator = new DefaultSessionIdGenerator(),
+        private readonly SessionIdGenerator $idGenerator = new Base64UrlSessionIdGenerator(),
     ) {
     }
 
