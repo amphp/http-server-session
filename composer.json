@@ -1,7 +1,7 @@
 {
     "name": "amphp/http-server-session",
-    "homepage": "https://github.com/amphp/http-server-session",
-    "description": "Session management for Amp's HTTP server.",
+    "homepage": "https://amphp.org/http-server-session",
+    "description": " An HTTP server plugin that simplifies session management for your applications. Effortlessly handle user sessions, securely managing data across requests.",
     "license": "MIT",
     "authors": [
         {
@@ -38,15 +38,13 @@
         "paragonie/constant_time_encoding": "^2.2"
     },
     "require-dev": {
-        "amphp/redis": "^2",
+        "amphp/redis": "^2-beta",
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "^2",
         "league/uri": "^6",
         "psalm/phar": "^4.23"
     },
-    "minimum-stability": "beta",
-    "prefer-stable": true,
     "suggest": {
         "amphp/redis": "Allows storing session data in Redis"
     },
