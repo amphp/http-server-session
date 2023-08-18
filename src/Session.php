@@ -2,10 +2,10 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\DeferredFuture;
-use Amp\Future;
 use Amp\Sync\KeyedMutex;
+use Amp\Sync\LocalMutex;
 use Amp\Sync\Lock;
+use function Amp\Sync\synchronized;
 
 final class Session
 {
@@ -19,7 +19,7 @@ final class Session
 
     private int $status = 0;
 
-    private Future $pending;
+    private LocalMutex $localMutex;
 
     private int $openCount = 0;
 
@@ -31,7 +31,7 @@ final class Session
         private readonly SessionIdGenerator $generator,
         ?string $clientId,
     ) {
-        $this->pending = Future::complete();
+        $this->localMutex = new LocalMutex();
 
         if ($clientId === null || !$generator->validate($clientId)) {
             $this->id = null;
@@ -83,7 +83,7 @@ final class Session
      */
     public function regenerate(): string
     {
-        return $this->synchronized(function (): string {
+        return synchronized($this->localMutex, function (): string {
             $this->assertLocked();
 
             $newId = $this->generator->generate();
@@ -108,7 +108,7 @@ final class Session
      */
     public function read(): self
     {
-        return $this->synchronized(function (): self {
+        return synchronized($this->localMutex, function (): self {
             if ($this->id !== null) {
                 $this->data = $this->storage->read($this->id);
             }
@@ -126,7 +126,7 @@ final class Session
      */
     public function lock(): self
     {
-        return $this->synchronized(function (): self {
+        return synchronized($this->localMutex, function (): self {
             $id = $this->id;
 
             if ($id === null) {
@@ -157,7 +157,7 @@ final class Session
      */
     public function save(): void
     {
-        $this->synchronized(function (): void {
+        synchronized($this->localMutex, function (): void {
             $this->assertLocked();
             $this->unsynchronizedSave();
         });
@@ -170,7 +170,7 @@ final class Session
      */
     public function destroy(): void
     {
-        $this->synchronized(function (): void {
+        synchronized($this->localMutex, function (): void {
             $this->assertLocked();
 
             $this->data = [];
@@ -184,7 +184,7 @@ final class Session
      */
     public function unlock(): void
     {
-        $this->synchronized(function (): void {
+        synchronized($this->localMutex, function (): void {
             if (!$this->isLocked()) {
                 return;
             }
@@ -204,7 +204,7 @@ final class Session
      */
     public function unlockAll(): void
     {
-        $this->synchronized(function (): void {
+        synchronized($this->localMutex, function (): void {
             if (!$this->isLocked()) {
                 return;
             }
@@ -286,20 +286,6 @@ final class Session
         }
 
         --$this->openCount;
-    }
-
-    private function synchronized(\Closure $closure): mixed
-    {
-        $this->pending->await();
-
-        $deferred = new DeferredFuture();
-        $this->pending = $deferred->getFuture();
-
-        try {
-            return $closure();
-        } finally {
-            $deferred->complete();
-        }
     }
 
     private function assertRead(): void
