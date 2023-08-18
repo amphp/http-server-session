@@ -104,7 +104,7 @@ final class Session
     }
 
     /**
-     * Reads the session data without opening (locking) the session.
+     * Reads the session data without locking the session.
      */
     public function read(): self
     {
@@ -120,9 +120,11 @@ final class Session
     }
 
     /**
-     * Opens the session for writing.
+     * Locks the session and opens it for writing.
+     *
+     * This will implicitly reload the session data from the storage.
      */
-    public function open(): self
+    public function lock(): self
     {
         return $this->synchronized(function (): self {
             $id = $this->id;

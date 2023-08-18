@@ -53,7 +53,7 @@ abstract class SessionStorageTest extends AsyncTestCase
         $driver = $this->createFactory();
 
         $session = $driver->create((new Server\Session\Base64UrlSessionIdGenerator)->generate());
-        $session->open();
+        $session->lock();
 
         \gc_collect_cycles();
         $session = null;
@@ -97,7 +97,7 @@ abstract class SessionStorageTest extends AsyncTestCase
         self::assertFalse($sessionA->isRead());
         self::assertFalse($sessionA->isLocked());
 
-        $sessionA->open();
+        $sessionA->lock();
 
         self::assertTrue($sessionA->isRead());
         self::assertTrue($sessionA->isLocked());
@@ -109,7 +109,7 @@ abstract class SessionStorageTest extends AsyncTestCase
 
         try {
             // should result in a timeout and never succeed, because there's already a lock
-            async(fn () => $sessionB->open())->await(new TimeoutCancellation(1));
+            async(fn () => $sessionB->lock())->await(new TimeoutCancellation(1));
         } finally {
             EventLoop::cancel($watcher);
 
