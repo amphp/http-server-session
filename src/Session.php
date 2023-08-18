@@ -14,7 +14,7 @@ final class Session
 
     private ?string $id;
 
-    /** @var array<string, string> Session data. */
+    /** @var array<string, mixed> Session data. */
     private array $data = [];
 
     private int $status = 0;
@@ -229,7 +229,7 @@ final class Session
         return \array_key_exists($key, $this->data);
     }
 
-    public function get(string $key): ?string
+    public function get(string $key): mixed
     {
         $this->ensureRead();
 
