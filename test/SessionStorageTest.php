@@ -22,7 +22,7 @@ abstract class SessionStorageTest extends AsyncTestCase
         $response = $this->respondWithSession($this->createFactory(), static function (Server\Request $request) {
             /** @var Session $session */
             $session = $request->getAttribute(Session::class)->open();
-            $session->save();
+            $session->commit();
 
             return new Server\Response(200, body: 'hello world');
         });
@@ -36,7 +36,7 @@ abstract class SessionStorageTest extends AsyncTestCase
             /** @var Session $session */
             $session = $request->getAttribute(Session::class)->open();
             $session->set('foo', 'bar');
-            $session->save();
+            $session->commit();
 
             return new Server\Response(HttpStatus::OK, ['cache-control' => 'public, max-age=604800'], 'hello world');
         });

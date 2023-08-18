@@ -21,7 +21,7 @@ final class Session
 
     private LocalMutex $localMutex;
 
-    private int $openCount = 0;
+    private int $lockCount = 0;
 
     private ?Lock $lock = null;
 
@@ -120,7 +120,7 @@ final class Session
     }
 
     /**
-     * Locks the session and opens it for writing.
+     * Locks the session for writing.
      *
      * This will implicitly reload the session data from the storage.
      */
@@ -142,7 +142,7 @@ final class Session
                 $this->data = $this->storage->read($id);
             }
 
-            ++$this->openCount;
+            ++$this->lockCount;
 
             $this->status = self::STATUS_READ | self::STATUS_LOCKED;
 
@@ -151,51 +151,56 @@ final class Session
     }
 
     /**
-     * Saves the given data in the session.
+     * Saves the given data in the session and unlocks it.
      *
-     * The session must be locked with either open() before calling this method.
+     * The session must be locked with lock() before calling this method.
      */
-    public function save(): void
+    public function commit(): void
     {
         synchronized($this->localMutex, function (): void {
             $this->assertLocked();
-            $this->unsynchronizedSave();
+            $this->write();
+        });
+    }
+
+    /**
+     * Reloads the data from the storage discarding modifications and unlocks the session.
+     *
+     * The session must be locked with lock() before calling this method.
+     */
+    public function rollback(): void
+    {
+        synchronized($this->localMutex, function (): void {
+            $this->assertLocked();
+            $this->read();
+            $this->unlockInternally();
+        });
+    }
+
+    /**
+     * Unlocks the session.
+     *
+     * The session must be locked with lock() before calling this method.
+     */
+    public function unlock(): void
+    {
+        synchronized($this->localMutex, function (): void {
+            $this->assertLocked();
+            $this->unlockInternally();
         });
     }
 
     /**
      * Destroys and unlocks the session data.
      *
-     * @throws \Error If the session has not been opened for writing.
+     * @throws \Error If the session has not been locked for writing.
      */
     public function destroy(): void
     {
         synchronized($this->localMutex, function (): void {
             $this->assertLocked();
-
             $this->data = [];
-
-            $this->unsynchronizedSave();
-        });
-    }
-
-    /**
-     * Unlocks the session.
-     */
-    public function unlock(): void
-    {
-        synchronized($this->localMutex, function (): void {
-            if (!$this->isLocked()) {
-                return;
-            }
-
-            if ($this->openCount === 1) {
-                $this->lock?->release();
-                $this->lock = null;
-                $this->status &= ~self::STATUS_LOCKED;
-            }
-
-            --$this->openCount;
+            $this->write();
         });
     }
 
@@ -213,13 +218,10 @@ final class Session
             $this->lock = null;
             $this->status &= ~self::STATUS_LOCKED;
 
-            $this->openCount = 0;
+            $this->lockCount = 0;
         });
     }
 
-    /**
-     * @throws \Error If the session has not been read.
-     */
     public function has(string $key): bool
     {
         $this->ensureRead();
@@ -227,9 +229,6 @@ final class Session
         return \array_key_exists($key, $this->data);
     }
 
-    /**
-     * @throws \Error If the session has not been read.
-     */
     public function get(string $key): ?string
     {
         $this->ensureRead();
@@ -238,7 +237,7 @@ final class Session
     }
 
     /**
-     * @throws \Error If the session has not been opened for writing.
+     * @throws \Error If the session has not been locked for writing.
      */
     public function set(string $key, mixed $data): void
     {
@@ -248,7 +247,7 @@ final class Session
     }
 
     /**
-     * @throws \Error If the session has not been opened for writing.
+     * @throws \Error If the session has not been locked for writing.
      */
     public function unset(string $key): void
     {
@@ -267,7 +266,7 @@ final class Session
         return $this->data;
     }
 
-    private function unsynchronizedSave(): void
+    private function write(): void
     {
         if ($this->id === null) {
             throw new \Error('Invalid session');
@@ -275,7 +274,7 @@ final class Session
 
         $this->storage->write($this->id, $this->data);
 
-        if ($this->openCount === 1) {
+        if ($this->lockCount === 1) {
             $this->lock?->release();
             $this->lock = null;
             $this->status &= ~self::STATUS_LOCKED;
@@ -285,7 +284,7 @@ final class Session
             }
         }
 
-        --$this->openCount;
+        --$this->lockCount;
     }
 
     private function ensureRead(): void
@@ -302,5 +301,19 @@ final class Session
         if (!$this->isLocked()) {
             throw new \Error('The session has not been locked');
         }
+    }
+
+    /**
+     * @return void
+     */
+    function unlockInternally(): void
+    {
+        if ($this->lockCount === 1) {
+            $this->lock?->release();
+            $this->lock = null;
+            $this->status &= ~self::STATUS_LOCKED;
+        }
+
+        --$this->lockCount;
     }
 }
