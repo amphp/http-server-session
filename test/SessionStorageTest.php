@@ -21,7 +21,7 @@ abstract class SessionStorageTest extends AsyncTestCase
     {
         $response = $this->respondWithSession($this->createFactory(), static function (Server\Request $request) {
             /** @var Session $session */
-            $session = $request->getAttribute(Session::class)->open();
+            $session = $request->getAttribute(Session::class)->lock();
             $session->commit();
 
             return new Server\Response(200, body: 'hello world');
@@ -34,7 +34,7 @@ abstract class SessionStorageTest extends AsyncTestCase
     {
         $response = $this->respondWithSession($this->createFactory(), static function (Server\Request $request) {
             /** @var Session $session */
-            $session = $request->getAttribute(Session::class)->open();
+            $session = $request->getAttribute(Session::class)->lock();
             $session->set('foo', 'bar');
             $session->commit();
 
@@ -65,9 +65,9 @@ abstract class SessionStorageTest extends AsyncTestCase
         $driver = $this->createFactory();
 
         $response = $this->respondWithSession($driver, static function (Server\Request $request) {
-            $session = $request->getAttribute(Session::class)->open();
+            $session = $request->getAttribute(Session::class)->lock();
             $session->set('foo', 'bar');
-            $session->save();
+            $session->commit();
 
             return new Server\Response(HttpStatus::OK, [], 'hello world');
         });
