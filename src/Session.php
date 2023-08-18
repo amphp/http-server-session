@@ -71,7 +71,7 @@ final class Session
      */
     public function isEmpty(): bool
     {
-        $this->assertRead();
+        $this->ensureRead();
 
         return empty($this->data);
     }
@@ -222,7 +222,7 @@ final class Session
      */
     public function has(string $key): bool
     {
-        $this->assertRead();
+        $this->ensureRead();
 
         return \array_key_exists($key, $this->data);
     }
@@ -232,7 +232,7 @@ final class Session
      */
     public function get(string $key): ?string
     {
-        $this->assertRead();
+        $this->ensureRead();
 
         return $this->data[$key] ?? null;
     }
@@ -262,7 +262,7 @@ final class Session
      */
     public function getData(): array
     {
-        $this->assertRead();
+        $this->ensureRead();
 
         return $this->data;
     }
@@ -288,11 +288,13 @@ final class Session
         --$this->openCount;
     }
 
-    private function assertRead(): void
+    private function ensureRead(): void
     {
-        if (!$this->isRead()) {
-            throw new \Error('The session has not been read');
-        }
+        synchronized($this->localMutex, function () {
+            if (!$this->isRead()) {
+                $this->read();
+            }
+        });
     }
 
     private function assertLocked(): void
