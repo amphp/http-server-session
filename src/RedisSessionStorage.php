@@ -2,9 +2,8 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Redis\QueryExecutor;
-use Amp\Redis\Redis;
-use Amp\Redis\RedisSetOptions;
+use Amp\Redis\Command\Option\SetOptions;
+use Amp\Redis\RedisClient;
 use Amp\Serialization\CompressingSerializer;
 use Amp\Serialization\NativeSerializer;
 use Amp\Serialization\Serializer;
@@ -13,25 +12,22 @@ final class RedisSessionStorage implements SessionStorage
 {
     public const DEFAULT_SESSION_LIFETIME = 3600;
 
-    private readonly Redis $redis;
-
-    private readonly RedisSetOptions $setOptions;
+    private readonly SetOptions $setOptions;
 
     public function __construct(
-        QueryExecutor $executor,
+        private readonly RedisClient $client,
         private readonly Serializer $serializer = new CompressingSerializer(new NativeSerializer()),
         private readonly int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
         private readonly string $keyPrefix = 'session:'
     ) {
-        $this->redis = new Redis($executor);
-        $this->setOptions = (new RedisSetOptions())->withTtl($this->sessionLifetime);
+        $this->setOptions = (new SetOptions())->withTtl($this->sessionLifetime);
     }
 
     public function write(string $id, array $data): void
     {
         if (empty($data)) {
             try {
-                $this->redis->delete($this->keyPrefix . $id);
+                $this->client->delete($this->keyPrefix . $id);
             } catch (\Throwable $error) {
                 throw new SessionException("Couldn't delete session '{$id}''", 0, $error);
             }
@@ -46,7 +42,7 @@ final class RedisSessionStorage implements SessionStorage
         }
 
         try {
-            $this->redis->set($this->keyPrefix . $id, $serializedData, $this->setOptions);
+            $this->client->set($this->keyPrefix . $id, $serializedData, $this->setOptions);
         } catch (\Throwable $error) {
             throw new SessionException("Couldn't persist data for session '{$id}'", 0, $error);
         }
@@ -55,7 +51,7 @@ final class RedisSessionStorage implements SessionStorage
     public function read(string $id): array
     {
         try {
-            $result = $this->redis->get($this->keyPrefix . $id);
+            $result = $this->client->get($this->keyPrefix . $id);
         } catch (\Throwable $error) {
             throw new SessionException("Couldn't read data for session '{$id}'", 0, $error);
         }
@@ -71,7 +67,7 @@ final class RedisSessionStorage implements SessionStorage
         }
 
         try {
-            $this->redis->expireIn($this->keyPrefix . $id, $this->sessionLifetime);
+            $this->client->expireIn($this->keyPrefix . $id, $this->sessionLifetime);
         } catch (\Throwable $error) {
             throw new SessionException("Couldn't renew expiry for session '{$id}'", 0, $error);
         }
