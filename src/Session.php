@@ -308,7 +308,7 @@ final class Session
         if ($this->lockCount === 1) {
             $this->lock?->release();
             $this->lock = null;
-            $this->status &= ~self::STATUS_LOCKED;
+            $this->status = 0;
         }
 
         --$this->lockCount;
