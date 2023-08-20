@@ -2,18 +2,17 @@
 
 namespace Amp\Http\Server\Session;
 
-use Amp\Redis\RedisConfig;
-use Amp\Redis\RemoteExecutorFactory;
 use Amp\Redis\Sync\RedisMutex;
+use function Amp\Redis\createRedisClient;
 
 class RedisSessionStorageTest extends SessionStorageTest
 {
     protected function createFactory(): SessionFactory
     {
-        $executorFactory = new RemoteExecutorFactory(RedisConfig::fromUri($this->getUri()));
-        $executor = $executorFactory->createQueryExecutor();
-
-        return new SessionFactory(new RedisMutex($executor), new RedisSessionStorage($executor));
+        return new SessionFactory(
+            new RedisMutex(createRedisClient($this->getUri())),
+            new RedisSessionStorage(createRedisClient($this->getUri())),
+        );
     }
 
     final protected function getUri(): string
