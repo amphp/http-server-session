@@ -13,11 +13,12 @@ final class Base64UrlSessionIdGenerator implements SessionIdGenerator
 
     public function __construct(int $length = 48)
     {
-        if ($length < 0 || $length % 4 !== 0) {
+        if ($length <= 0 || $length % 4 !== 0) {
             throw new \Error('Invalid length (' . $length . '), must be divisible by four');
         }
 
         // divisible by four to not waste chars with "=" and simplify regexp.
+        /** @psalm-suppress PropertyTypeCoercion */
         $this->bytes = (int) ($length / 4 * 3);
         $this->regex = '/^[A-Za-z0-9_\-]{' . $length . '}$/';
 

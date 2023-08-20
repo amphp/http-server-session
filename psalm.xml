@@ -27,5 +27,11 @@
                 <directory name="src" />
             </errorLevel>
         </MissingClosureReturnType>
+
+        <StringIncrement>
+            <errorLevel type="suppress">
+                <directory name="src" />
+            </errorLevel>
+        </StringIncrement>
     </issueHandlers>
 </psalm>
