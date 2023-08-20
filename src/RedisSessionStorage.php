@@ -15,19 +15,16 @@ final class RedisSessionStorage implements SessionStorage
 
     private readonly Redis $redis;
 
-    private readonly Serializer $serializer;
-
     private readonly RedisSetOptions $setOptions;
 
     public function __construct(
         QueryExecutor $executor,
-        ?Serializer $serializer = null,
+        private readonly Serializer $serializer = new CompressingSerializer(new NativeSerializer()),
         private readonly int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
         private readonly string $keyPrefix = 'session:'
     ) {
         $this->redis = new Redis($executor);
-        $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
-        $this->setOptions = (new RedisSetOptions)->withTtl($this->sessionLifetime);
+        $this->setOptions = (new RedisSetOptions())->withTtl($this->sessionLifetime);
     }
 
     public function write(string $id, array $data): void

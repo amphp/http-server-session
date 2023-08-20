@@ -17,14 +17,12 @@ final class LocalSessionStorage implements SessionStorage
     public const DEFAULT_SESSION_LIFETIME = 3600;
 
     private readonly LocalCache $storage;
-    private readonly Serializer $serializer;
 
     public function __construct(
-        ?Serializer $serializer = null,
+        private readonly Serializer $serializer = new CompressingSerializer(new NativeSerializer()),
         private readonly int $sessionLifetime = self::DEFAULT_SESSION_LIFETIME,
     ) {
-        $this->serializer = $serializer ?? new CompressingSerializer(new NativeSerializer);
-        $this->storage = new LocalCache;
+        $this->storage = new LocalCache();
     }
 
     public function write(string $id, array $data): void
