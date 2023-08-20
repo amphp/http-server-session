@@ -216,7 +216,7 @@ final class Session
 
             $this->lock?->release();
             $this->lock = null;
-            $this->status &= ~self::STATUS_LOCKED;
+            $this->status = 0;
 
             $this->lockCount = 0;
         });
