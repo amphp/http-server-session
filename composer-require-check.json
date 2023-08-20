@@ -1,8 +1,7 @@
 {
     "symbol-whitelist": [
-        "Amp\\Redis\\QueryExecutor",
-        "Amp\\Redis\\Redis",
-        "Amp\\Redis\\RedisSetOptions"
+        "Amp\\Redis\\RedisClient",
+        "Amp\\Redis\\Command\\Option\\SetOptions"
     ],
     "php-core-extensions": [
         "Core",
