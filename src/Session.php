@@ -303,10 +303,7 @@ final class Session
         }
     }
 
-    /**
-     * @return void
-     */
-    function unlockInternally(): void
+    public function unlockInternally(): void
     {
         if ($this->lockCount === 1) {
             $this->lock?->release();

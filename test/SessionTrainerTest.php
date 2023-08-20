@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 use Amp\Http\Server\Session\Session;
 use Amp\Http\Server\Session\SessionTrainer;

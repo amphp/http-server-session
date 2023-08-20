@@ -35,6 +35,6 @@ final class Base64UrlSessionIdGenerator implements SessionIdGenerator
 
     public function validate(string $id): bool
     {
-        return (bool)\preg_match($this->regex, $id);
+        return (bool) \preg_match($this->regex, $id);
     }
 }

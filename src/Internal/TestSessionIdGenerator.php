@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace Amp\Http\Server\Session\Internal;
 
@@ -16,6 +16,6 @@ final class TestSessionIdGenerator implements SessionIdGenerator
 
     public function validate(string $id): bool
     {
-        return (bool)\preg_match('(^[a-z]+$)', $id);
+        return (bool) \preg_match('(^[a-z]+$)', $id);
     }
 }
