@@ -38,7 +38,7 @@
         "paragonie/constant_time_encoding": "^2.2"
     },
     "require-dev": {
-        "amphp/redis": "^2-beta",
+        "amphp/redis": "^2",
         "amphp/phpunit-util": "^3",
         "phpunit/phpunit": "^9",
         "amphp/php-cs-fixer-config": "^2",
