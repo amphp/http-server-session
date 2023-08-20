@@ -10,7 +10,7 @@ use Amp\Http\Server\Session\Internal\TestSessionStorage;
  *
  * Do not use this implementation in production!
  */
-final class TestSession
+final class SessionTrainer
 {
     private readonly LocalSessionStorage $backingStorage;
     private readonly TestSessionIdGenerator $idGenerator;

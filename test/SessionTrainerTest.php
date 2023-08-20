@@ -1,16 +1,16 @@
 <?php
 
 use Amp\Http\Server\Session\Session;
-use Amp\Http\Server\Session\TestSession;
+use Amp\Http\Server\Session\SessionTrainer;
 use PHPUnit\Framework\TestCase;
 
-class TestSessionTest extends TestCase
+class SessionTrainerTest extends TestCase
 {
-    private TestSession $testSession;
+    private SessionTrainer $testSession;
 
     protected function setUp(): void
     {
-        $this->testSession = new TestSession();
+        $this->testSession = new SessionTrainer();
         $this->testSession->givenSession('a', [
             'foo' => 42,
             'bar' => false,
