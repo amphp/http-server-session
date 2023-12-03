@@ -1,5 +1,6 @@
 <?php
 
+use Amp\Http\Cookie\CookieAttributes;
 use Amp\Http\HttpStatus;
 use Amp\Http\Server\DefaultErrorHandler;
 use Amp\Http\Server\Request;
@@ -62,7 +63,10 @@ $requestHandler = new ClosureRequestHandler(
     }
 );
 
-$sessionMiddleware = new SessionMiddleware();
+$sessionMiddleware = new SessionMiddleware(
+    cookieAttributes: CookieAttributes::default()->withExpiry(new \DateTime('+30 minute')),
+    cookieName: 'my-cookie-name'
+);
 
 $middlewareStack = stackMiddleware($requestHandler, $sessionMiddleware);
 

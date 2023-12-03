@@ -84,6 +84,22 @@ If you haven't used middleware in `amphp/http-server`, follow the [instructions 
 
 A simple example is provided here [`examples/simple.php`](https://github.com/amphp/http-server-session/blob/3.x/examples/simple.php).
 
+The `SessionMiddleware` can be further configured from the constructor regarding four different aspects:
+
+* `SessionFactory`
+* `CookieAttributes`
+* Cookie name (default: `'session'`)
+* Request attribute (default: `Session::class`)
+
+The `CookieAttributes` is used to configure different cookie properties such as the expiry or the domain:
+
+```php
+$cookieAttributes = CookieAttributes::default()
+    ->withDomain('amphp.org')
+    ->withExpiry(new \DateTime('+30 min'))
+    ->withSecure();
+```
+
 #### Using the factory to create an instance of Session
 
 Internally the session works with 3 dependencies:
