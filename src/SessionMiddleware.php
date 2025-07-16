@@ -24,7 +24,7 @@ final class SessionMiddleware implements Middleware
      */
     public function __construct(
         private readonly SessionFactory $factory = new SessionFactory(),
-        CookieAttributes $cookieAttributes = null,
+        CookieAttributes|null $cookieAttributes = null,
         private readonly string $cookieName = self::DEFAULT_COOKIE_NAME,
         private readonly string $requestAttribute = Session::class
     ) {

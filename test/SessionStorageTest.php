@@ -126,7 +126,7 @@ abstract class SessionStorageTest extends AsyncTestCase
     protected function respondWithSession(
         Server\Session\SessionFactory $driver,
         \Closure $requestHandler,
-        string $sessionId = null
+        string|null $sessionId = null
     ): Server\Response {
         $requestHandler = Server\Middleware\stackMiddleware(
             new Server\RequestHandler\ClosureRequestHandler($requestHandler),
