@@ -35,7 +35,7 @@
         "amphp/sync": "^2",
         "amphp/serialization": "^1",
         "amphp/cache": "^2",
-        "paragonie/constant_time_encoding": "^2.2"
+        "paragonie/constant_time_encoding": "^2 || ^3"
     },
     "require-dev": {
         "amphp/redis": "^2",
