@@ -8,6 +8,6 @@ class LocalSessionStorageTest extends SessionStorageTest
 {
     protected function createFactory(): SessionFactory
     {
-        return new SessionFactory(new LocalKeyedMutex, new LocalSessionStorage);
+        return new SynchronizedSessionFactory(new LocalKeyedMutex, new LocalSessionStorage);
     }
 }

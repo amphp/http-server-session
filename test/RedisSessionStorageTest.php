@@ -9,9 +9,9 @@ class RedisSessionStorageTest extends SessionStorageTest
 {
     protected function createFactory(): SessionFactory
     {
-        return new SessionFactory(
+        return new SynchronizedSessionFactory(
             new RedisMutex(createRedisClient($this->getUri())),
-            new RedisSessionStorage(createRedisClient($this->getUri())),
+            new RedisSessionStorage(createRedisClient($this->getUri()))
         );
     }
 
